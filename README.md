@@ -1,55 +1,38 @@
-# BOT (Bucket Object Transferer)
+# Helm Charts
 
-![GitHub Release](https://img.shields.io/github/v/release/sebastocorp/bot)
-![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/sebastocorp/bot)
-![GitHub License](https://img.shields.io/github/license/sebastocorp/bot)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+![Release Charts](https://github.com/achetronic/bot/workflows/Release%20Charts/badge.svg?branch=main)
+[![Releases downloads](https://img.shields.io/github/downloads/sebastocorp/bot/total.svg)](https://github.com/sebastocorp/bot/releases)
 
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/sebastocorp/bot/total)
-![GitHub forks](https://img.shields.io/github/forks/sebastocorp/bot)
-![GitHub Repo stars](https://img.shields.io/github/stars/sebastocorp/bot)
+Hitman Helm Charts
 
-![GitHub User's stars](https://img.shields.io/github/stars/sebastocorp)
-![GitHub followers](https://img.shields.io/github/followers/sebastocorp)
+## Usage
 
-## Description
+[Helm](https://helm.sh) must be installed to use the charts.
+Please refer to Helm's [documentation](https://helm.sh/docs/) to get started.
 
-TODO
+Once Helm is set up properly, add the repo as follows:
 
-## Motivation
-
-TODO
-
-## Flags
-
-| Name                  | Command  | Default                              | Description |
-|:---                   |:---      |:---                                  |:---         |
-| `log-level`           | `server` | `info`                               | Verbosity level for logs |
-
-## How to use
-
-This project provides the binary files in differents architectures to make it easy to use wherever wanted.
-
-### Configuration
-
-Current configuration version: `v1alpha1`
-
-## How does it work?
-
-1. Checks the if object in backend bucket exist
-2. Transfer the object from backend to frontend bucket
-
-## Example
-
-```sh
-bot server
+```console
+helm repo add bot https://sebastocorp.github.io/bot/
 ```
 
-## How to collaborate
+You can then run the following command to see the charts.
 
-We are open to external collaborations for this project: improvements, bugfixes, whatever.
+```console
+helm search repo bot
+```
 
-For doing it, open an issue to discuss the need of the changes, then:
+## How to contribute
 
-- Fork the repository
-- Make your changes to the code
-- Open a PR and wait for review
+For doing it you must:
+
+* Fork the repository
+* Make your changes to the code in a specific branch
+* Open a PR
+
+> The charts will be reviewed and tested (always)
+
+## License
+
+[Apache 2.0 License](./LICENSE)
