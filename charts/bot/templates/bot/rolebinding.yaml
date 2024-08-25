@@ -1,0 +1,22 @@
+{{ if and .Values.bot.enabled (and .Values.bot.extraRole.create .Values.bot.serviceAccount.create) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "bot.fullname" . }}
+  labels:
+    {{- include "bot.labels" . | nindent 4 }}
+  {{- with .Values.bot.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+subjects:
+- kind: ServiceAccount
+  name: {{ include "bot.bot.serviceAccountName" . }}
+  apiGroup: ""
+roleRef:
+  kind: Role
+  name: {{ include "bot.fullname" . }}
+  apiGroup: rbac.authorization.k8s.io
+
+{{ end }}

@@ -1,0 +1,65 @@
+{{ if and .Values.bot.enabled .Values.bot.service.enabled }}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "bot.fullname" . }}
+  labels:
+    {{- include "bot.labels" . | nindent 4 }}
+  {{- with .Values.bot.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+
+  {{- with .Values.bot.service.type }}
+  type: {{ . }}
+  {{- end }}
+
+  {{- with .Values.bot.service.clusterIP }}
+  clusterIP: {{ . }}
+  {{- end }}
+
+  {{- if (semverCompare ">= 1.23-0" .Capabilities.KubeVersion.Version) }}
+  {{- with .Values.bot.service.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ . }}
+  {{- end }}
+  {{- with .Values.bot.service.ipFamilies }}
+  ipFamilies: {{ . | toYaml | nindent 2 }}
+  {{- end }}
+  {{- end }}
+
+  {{- with .Values.bot.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ . }}
+  {{- end }}
+
+  # We want the servers to become available even if they're not ready
+  # since this DNS is also used for join operations.
+  {{- with .Values.bot.service.publishNotReadyAddresses }}
+  publishNotReadyAddresses: {{ . }}
+  {{- end}}
+
+  ports:
+  {{ range $key, $value := .Values.bot.service.ports }}
+    - name: {{ $value.name }}
+      port: {{ $value.port }}
+      targetPort: {{ $value.targetPort }}
+
+      {{- with $value.protocol }}
+      protocol: {{ . }}
+      {{- end }}
+
+      {{- if and ($value.nodePort) (eq ($.Values.bot.service.type | toString) "NodePort") }}
+      nodePort: {{ $value.nodePort }}
+      {{- end }}
+  {{- end}}
+
+  selector:
+    component: bot
+    {{- include "bot.selectorLabels" . | nindent 4 }}
+    {{- with .Values.bot.extraLabels }}
+    {{- toYaml . | nindent 8 }}
+    {{- end }}
+
+{{- end }}
+

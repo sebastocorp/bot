@@ -1,0 +1,163 @@
+{{ if .Values.bot.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bot.fullname" . }}
+  labels:
+    {{- include "bot.labels" . | nindent 4 }}
+  {{- with .Values.bot.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.bot.replicas }}
+  selector:
+    matchLabels:
+      component: bot
+      {{- include "bot.selectorLabels" . | nindent 6 }}
+
+  {{- with .Values.bot.deploymentStrategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+  template:
+    metadata:
+      {{- with .Values.bot.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        component: bot
+        {{- include "bot.selectorLabels" . | nindent 8 }}
+        {{- with .Values.bot.extraLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "bot.bot.serviceAccountName" . }}
+
+      {{- with .Values.bot.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.bot.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.bot.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.bot.extraInitContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.bot.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+
+      {{- with .Values.bot.hostNetwork }}
+      hostNetwork: {{ . }}
+      {{- end }}
+
+      containers:
+        - name: {{ .Chart.Name }}
+
+          {{- with .Values.bot.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          image: "{{ .Values.global.image.repository }}:{{ .Values.global.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+
+          {{- with .Values.bot.lifecycle }}
+          lifecycle:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          env:
+            - name: BOT_SERVER_PROXY_HOST
+              value: {{ include "bot.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local
+          {{- with .Values.bot.env }}
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.bot.extraEnv }}
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.bot.extraEnvFrom }}
+          envFrom:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.bot.livenessProbe }}
+          livenessProbe:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.bot.readinessProbe }}
+          readinessProbe:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          args:
+            - server
+          {{- with .Values.bot.extraArgs }}
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.bot.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          ports:
+            {{ range $key, $value := .Values.bot.service.ports }}
+            - name: {{ $value.name }}
+              containerPort: {{ $value.targetPort }}
+              {{- with $value.protocol }}
+              protocol: {{ . }}
+              {{- end }}
+            {{- end }}
+
+            {{- with .Values.bot.extraPorts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.bot.resources | nindent 12 }}
+
+        {{- with .Values.bot.extraContainers }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+
+      {{- with .Values.bot.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.bot.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.bot.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.bot.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+{{- end }}
