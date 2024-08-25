@@ -3,9 +3,9 @@ apiVersion: v2
 name: bot
 type: application
 description: >-
-  A Helm chart for bot, HTTP proxy to serve
-  object storage files
-version: &chartVersionSpec 0.1.1 # chart version
+  A Helm chart for bot, a service with an API to transfer objects
+  between object storage services 
+version: &chartVersionSpec 0.1.0 # chart version
 appVersion: *chartVersionSpec # application version
 kubeVersion: ">=1.22.0-0" # kubernetes version
 home: https://github.com/sebastocorp/bot
