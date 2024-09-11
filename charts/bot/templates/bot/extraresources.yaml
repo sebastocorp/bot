@@ -3,7 +3,7 @@
 ---
 {{- $resource := . | deepCopy }}
 
-{{- $objectLabels := include "hashrouter.labels" $ | fromYaml }}
+{{- $objectLabels := include "bot.labels" $ | fromYaml }}
 
 {{- if $resource.metadata.labels }}
 {{- $objectLabels = merge $objectLabels $resource.metadata.labels }}
