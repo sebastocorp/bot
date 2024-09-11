@@ -47,19 +47,20 @@ func NewManager(ctx context.Context, mysqlCreds MySQLCredsT) (man ManagerT, err 
 	man.MySQL.Pass = mysqlCreds.Pass
 	man.MySQL.Database = mysqlCreds.Database
 	man.MySQL.Table = mysqlCreds.Table
-	
+
 	if man.MySQL.Table == "" {
 		err = fmt.Errorf("database table not provided")
 		return man, err
 	}
-	
+
 	// Get a database handle.
 	man.MySQL.Connector, err = mysql.NewConnector(&mysql.Config{
-		User:   man.MySQL.User,
-		Passwd: man.MySQL.Pass,
-		Net:    "tcp",
-		Addr:   fmt.Sprintf("%s:%s", man.MySQL.Host, man.MySQL.Port),
-		DBName: man.MySQL.Database,
+		User:                 man.MySQL.User,
+		Passwd:               man.MySQL.Pass,
+		Net:                  "tcp",
+		Addr:                 fmt.Sprintf("%s:%s", man.MySQL.Host, man.MySQL.Port),
+		DBName:               man.MySQL.Database,
+		AllowNativePasswords: true,
 	})
 
 	return man, err

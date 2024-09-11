@@ -13,9 +13,11 @@
 
 ## Description
 
-TODO
+BOT is a service dedicated to transferring objects from one object storage service to another and recording it in a MySQL database.
 
 ## Motivation
+
+On many occasions, we require migrating objects from one bucket in an object storage to another, but performing this migration can be very costly if done immediately. Often, our intention is to carry out this migration gradually. BOT handles this transfer with each request received by its API.
 
 TODO
 
