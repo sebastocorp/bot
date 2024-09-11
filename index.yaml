@@ -2,6 +2,28 @@ apiVersion: v1
 entries:
   bot:
   - apiVersion: v2
+    appVersion: 0.1.2
+    created: "2024-09-11T08:30:24.527403191Z"
+    description: 'A Helm chart for bot, a service with an API to transfer objects
+      between object storage services '
+    digest: 1c3b4638dbbd5ab41c66e126a8dcdb8f9dc41810f20ad93c440fabaa9636fe5c
+    home: https://github.com/sebastocorp/bot
+    keywords:
+    - bot
+    - kubernetes
+    kubeVersion: '>=1.22.0-0'
+    maintainers:
+    - email: sebastian.varbel@gmail.com
+      name: Sebastian Vargas
+      url: https://github.com/sebastocorp
+    name: bot
+    sources:
+    - https://github.com/sebastocorp/bot
+    type: application
+    urls:
+    - bot-0.1.2.tgz
+    version: 0.1.2
+  - apiVersion: v2
     appVersion: 0.1.1
     created: "2024-08-25T12:54:55.069882874Z"
     description: 'A Helm chart for bot, a service with an API to transfer objects
@@ -45,4 +67,4 @@ entries:
     urls:
     - bot-0.1.0.tgz
     version: 0.1.0
-generated: "2024-08-25T12:54:55.069895007Z"
+generated: "2024-09-11T08:30:24.527417858Z"
