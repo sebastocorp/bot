@@ -83,13 +83,40 @@ func (b *BotT) moveTransferRequest(serverName string, request TransferT) (err er
 		return err
 	}
 
+	http.DefaultClient.Timeout = 200 * time.Millisecond
 	requestURL := fmt.Sprintf("http://%s:%s/transfer", serverToSend.Address, b.API.Port)
-	_, err = http.Post(requestURL, "application/json", bytes.NewBuffer(bodyBytes))
+	respBody, err := http.Post(requestURL, headerContentTypeAppJson, bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		return err
 	}
+	defer respBody.Body.Close()
 
 	return err
+}
+
+func (b *BotT) processTransferRequest(itemPath string, request TransferT) {
+	logger.Logger.Infof("process '%s' transfer request '%v' in '%s'", itemPath, request, b.Server.Name)
+	serverName := HashRing.GetNode(itemPath)
+
+	if serverName != b.Server.Name {
+		// send transfer request to owner
+		logger.Logger.Infof("moving '%s' transfer request from '%s' to '%s'", itemPath, b.Server.Name, serverName)
+
+		err := b.moveTransferRequest(serverName, request)
+		if err != nil {
+			logger.Logger.Errorf("unable to move '%s' transfer request to '%s'", itemPath, serverName)
+		}
+
+		return
+	}
+
+	logger.Logger.Infof("execute '%s' transfer request in '%s'", itemPath, b.Server.Name)
+	err := b.executeTransferRequest(request)
+	if err != nil {
+		logger.Logger.Errorf("unable to execute '%s' transfer request in '%s': %s", itemPath, b.Server.Name, err.Error())
+	} else {
+		logger.Logger.Infof("success executing '%s' transfer request in '%s'", itemPath, b.Server.Name)
+	}
 }
 
 func (b *BotT) workerFlow() {
@@ -98,33 +125,7 @@ func (b *BotT) workerFlow() {
 		transferRequestMap := TransferRequestPool.GetTransferRequestMap()
 
 		for itemPath, request := range transferRequestMap {
-			serverName := HashRing.GetNode(itemPath)
-			logger.Logger.Infof("process '%s' transfer request '%v' in '%s'", itemPath, request, b.Server.Name)
-
-			if serverName != b.Server.Name {
-				// send transfer request to owner
-				logger.Logger.Infof("moving '%s' transfer request from '%s' to '%s'", itemPath, b.Server.Name, serverName)
-
-				err := b.moveTransferRequest(serverName, request)
-				if err != nil {
-					logger.Logger.Errorf("unable to move '%s' transfer request to '%s'", itemPath, serverName)
-				}
-
-				// remove request from pool
-				TransferRequestPool.RemoveTransferRequest(itemPath)
-				continue
-			}
-
-			// process transfer request
-			err := b.executeTransferRequest(request)
-			if err != nil {
-				logger.Logger.Errorf("unable to process '%s' transfer request in '%s': %s", itemPath, b.Server.Name, err.Error())
-				TransferRequestPool.RemoveTransferRequest(itemPath)
-				continue
-			}
-
-			logger.Logger.Infof("success processing '%s' transfer request in '%s'", itemPath, b.Server.Name)
-
+			go b.processTransferRequest(itemPath, request)
 			// remove request from pool
 			TransferRequestPool.RemoveTransferRequest(itemPath)
 		}

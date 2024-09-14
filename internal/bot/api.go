@@ -9,6 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	headerContentTypeAppJson = "application/json"
+)
+
 type APIT struct {
 	ctx        context.Context
 	Port       string
@@ -60,12 +64,12 @@ func (b *BotT) postTransfer(c *gin.Context) {
 		return
 	}
 
-	logger.Logger.Infof("result: '%v'", transfer)
-
 	TransferRequestPool.AddTransferRequest(TransferT{
 		From: transfer.Transfer.From,
 		To:   transfer.Transfer.To,
 	})
+
+	logger.Logger.Infof("transfer request '%v' added in pool", transfer)
 
 	c.JSON(http.StatusOK, gin.H{"message": "OK"})
 }

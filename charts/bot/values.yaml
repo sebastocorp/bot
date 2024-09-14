@@ -6,7 +6,7 @@ global:
   #
   image:
     repository: "ghcr.io/sebastocorp/bot"
-    tag: "v0.1.2"
+    tag: ""
     # Overrides the default Image Pull Policy
     pullPolicy: IfNotPresent
 
