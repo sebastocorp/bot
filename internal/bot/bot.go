@@ -1,18 +1,20 @@
 package bot
 
 import (
-	"bot/internal/database"
-	"bot/internal/hashring"
-	"bot/internal/logger"
-	"bot/internal/objectStorage"
 	"context"
 	"fmt"
 	"maps"
 	"net"
 	"os"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
+
+	"bot/internal/database"
+	"bot/internal/hashring"
+	"bot/internal/logger"
+	"bot/internal/objectStorage"
 )
 
 var ServerInstancesPool = ServerInstancesPoolT{
@@ -26,10 +28,11 @@ var TransferRequestPool = TransferRequestPoolT{
 var HashRing = hashring.NewHashRing(1)
 
 type BotT struct {
-	Server          ServerT
-	ProxyHost       string
-	ObjectManager   objectStorage.ManagerT
-	DatabaseManager database.ManagerT
+	Server           ServerT
+	ProxyHost        string
+	ObjectManager    objectStorage.ManagerT
+	DatabaseManager  database.ManagerT
+	ParallelRequests int
 
 	API APIT
 }
@@ -146,6 +149,23 @@ func NewBotServer() (botServer *BotT, err error) {
 	if botServer.API.Port == "" {
 		botServer.API.Port = "8080"
 	}
+
+	botServer.ParallelRequests = 1
+	parallelRequest := os.Getenv("BOT_WORKER_PARALLEL_REQUESTS")
+	if parallelRequest != "" {
+		botServer.ParallelRequests, err = strconv.Atoi(parallelRequest)
+		if err != nil {
+			err = fmt.Errorf("invalid environment variable 'BOT_WORKER_PARALLEL_REQUESTS' value: %s", err.Error())
+			return botServer, err
+		}
+	}
+
+	if botServer.ParallelRequests <= 0 {
+		err = fmt.Errorf("invalid environment variable 'BOT_WORKER_PARALLEL_REQUESTS' value, must be a positive number")
+		return botServer, err
+	}
+
+	// ParallelRequestNumber
 
 	ctx := context.Background()
 	botServer.ObjectManager, err = objectStorage.NewManager(

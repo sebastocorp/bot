@@ -1,51 +1,44 @@
 package bot
 
 import (
-	"bot/internal/logger"
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
+
+	"bot/internal/logger"
 )
 
 // WORKER Functions
 
 func (b *BotT) executeTransferRequest(request TransferT) (err error) {
 	// check if destination object already exist
-	destExist, _, err := b.ObjectManager.S3ObjectExist(request.To)
+	destInfo, err := b.ObjectManager.S3ObjectExist(request.To)
 	if err != nil {
 		return err
 	}
+	request.To.Info = destInfo
 
-	if destExist {
-		err = fmt.Errorf("object '%s' already exist in '%s' destination bucket", request.To.ObjectPath, request.To.BucketName)
-		return err
-	}
+	if !destInfo.Exist {
+		// check if source object already exist
+		sourceInfo, err := b.ObjectManager.GCSObjectExist(request.From)
+		if err != nil {
+			return err
+		}
 
-	// check if source object already exist
-	sourceExist, sourceInfo, err := b.ObjectManager.GCSObjectExist(request.From)
-	if err != nil {
-		return err
-	}
+		if !sourceInfo.Exist {
+			err = fmt.Errorf("object '%s' NOT found in '%s' source bucket", request.From.ObjectPath, request.From.BucketName)
+			return err
+		}
 
-	if !sourceExist {
-		err = fmt.Errorf("object '%s' NOT found in '%s' source bucket", request.From.ObjectPath, request.From.BucketName)
-		return err
-	}
+		_, err = b.ObjectManager.TransferObjectFromGCSToS3(request.From, request.To)
+		if err != nil {
+			return err
+		}
 
-	if len(sourceInfo.MD5) == 0 {
-		err = fmt.Errorf("unable to transfer object '%s' without md5 assosiated in '%s' source bucket", request.From.ObjectPath, request.From.BucketName)
-		return err
-	}
-
-	request.From.Etag = hex.EncodeToString(sourceInfo.MD5)
-	request.To.Etag = request.From.Etag
-
-	_, err = b.ObjectManager.TransferObjectFromGCSToS3(request.From, request.To)
-	if err != nil {
-		return err
+		request.To.Info = sourceInfo
 	}
 
 	// Get the object from the database
@@ -94,7 +87,9 @@ func (b *BotT) moveTransferRequest(serverName string, request TransferT) (err er
 	return err
 }
 
-func (b *BotT) processTransferRequest(itemPath string, request TransferT) {
+func (b *BotT) processTransferRequest(wg *sync.WaitGroup, itemPath string, request TransferT) {
+	defer wg.Done()
+
 	logger.Logger.Infof("process '%s' transfer request '%v' in '%s'", itemPath, request, b.Server.Name)
 	serverName := HashRing.GetNode(itemPath)
 
@@ -124,12 +119,22 @@ func (b *BotT) workerFlow() {
 		// CONSUME OBJECT TO MIGRATE FROM MAP OR WAIT
 		transferRequestMap := TransferRequestPool.GetTransferRequestMap()
 
+		wg := sync.WaitGroup{}
+		count := 0
 		for itemPath, request := range transferRequestMap {
-			go b.processTransferRequest(itemPath, request)
+			wg.Add(1)
+
+			go b.processTransferRequest(&wg, itemPath, request)
+
 			// remove request from pool
 			TransferRequestPool.RemoveTransferRequest(itemPath)
+
+			if count++; count >= b.ParallelRequests {
+				break
+			}
 		}
 
+		wg.Wait()
 		time.Sleep(1 * time.Second) // REMOVE THIS IN THE END
 	}
 }

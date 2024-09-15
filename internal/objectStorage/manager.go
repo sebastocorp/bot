@@ -3,6 +3,9 @@ package objectStorage
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"io"
 
 	"cloud.google.com/go/storage"
@@ -30,9 +33,16 @@ type GCST struct {
 }
 
 type ObjectT struct {
-	BucketName string `json:"bucket"`
-	ObjectPath string `json:"path"`
-	Etag       string `json:"etag"`
+	BucketName string      `json:"bucket"`
+	ObjectPath string      `json:"path"`
+	Info       ObjectInfoT `json:"-"`
+}
+
+type ObjectInfoT struct {
+	Exist       bool
+	MD5         string
+	Size        int64
+	ContentType string
 }
 
 func NewManager(ctx context.Context, s3 S3T, gcs GCST) (man ManagerT, err error) {
@@ -56,26 +66,47 @@ func NewManager(ctx context.Context, s3 S3T, gcs GCST) (man ManagerT, err error)
 	return man, err
 }
 
-func (m *ManagerT) S3ObjectExist(obj ObjectT) (result bool, stat minio.ObjectInfo, err error) {
-	result = true
-	stat, err = m.S3.Client.StatObject(m.Ctx, obj.BucketName, obj.ObjectPath, minio.GetObjectOptions{})
-	if err != nil && minio.ToErrorResponse(err).Code == "NoSuchKey" {
-		err = nil
-		result = false
+func (m *ManagerT) S3ObjectExist(obj ObjectT) (info ObjectInfoT, err error) {
+	stat, err := m.S3.Client.StatObject(m.Ctx, obj.BucketName, obj.ObjectPath, minio.GetObjectOptions{})
+	if err != nil {
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			err = nil
+			info.Exist = false
+		}
+
+		return info, err
 	}
 
-	return result, stat, err
+	info.Exist = true
+	info.MD5 = stat.ETag
+	info.Size = stat.Size
+	info.ContentType = stat.ContentType
+
+	return info, err
 }
 
-func (m *ManagerT) GCSObjectExist(obj ObjectT) (result bool, stat *storage.ObjectAttrs, err error) {
-	result = true
-	stat, err = m.GCS.Client.Bucket(obj.BucketName).Object(obj.ObjectPath).Attrs(m.Ctx)
-	if err != nil && err == storage.ErrObjectNotExist {
-		err = nil
-		result = false
+func (m *ManagerT) GCSObjectExist(obj ObjectT) (info ObjectInfoT, err error) {
+	stat, err := m.GCS.Client.Bucket(obj.BucketName).Object(obj.ObjectPath).Attrs(m.Ctx)
+	if err != nil {
+		if err == storage.ErrObjectNotExist {
+			err = nil
+			info.Exist = false
+		}
+
+		return info, err
 	}
 
-	return result, stat, err
+	if len(stat.MD5) == 0 {
+		err = fmt.Errorf("object '%s' without md5 assosiated in '%s' source bucket", obj.ObjectPath, obj.BucketName)
+		return info, err
+	}
+
+	info.Exist = true
+	info.MD5 = hex.EncodeToString(stat.MD5)
+	info.Size = stat.Size
+	info.ContentType = stat.ContentType
+
+	return info, err
 }
 
 func (m *ManagerT) S3DownloadObjectBytes(obj ObjectT) (b []byte, err error) {
@@ -98,7 +129,7 @@ func (m *ManagerT) S3DownloadObjectBytes(obj ObjectT) (b []byte, err error) {
 	return b, err
 }
 
-func (m *ManagerT) TransferObjectFromGCSToS3(src, dst ObjectT) (info minio.ObjectInfo, err error) {
+func (m *ManagerT) TransferObjectFromGCSToS3(src, dst ObjectT) (info ObjectInfoT, err error) {
 	srcReader, err := m.GCS.Client.Bucket(src.BucketName).Object(src.ObjectPath).NewReader(m.Ctx)
 	if err != nil {
 		return info, err
@@ -115,7 +146,16 @@ func (m *ManagerT) TransferObjectFromGCSToS3(src, dst ObjectT) (info minio.Objec
 		return info, err
 	}
 
-	_, info, err = m.S3ObjectExist(dst)
+	info, err = m.S3ObjectExist(dst)
 
 	return info, err
+}
+
+func (o *ObjectT) String() string {
+	return fmt.Sprintf("{bucket: '%s', object: '%s'}", o.BucketName, o.ObjectPath)
+}
+
+func (o *ObjectT) Marshal() (result []byte, err error) {
+	result, err = json.Marshal(o)
+	return result, err
 }

@@ -109,7 +109,7 @@ func (m *ManagerT) InsertObject(object objectStorage.ObjectT) (err error) {
 
 	// Insert the object into the database.
 	queryClause := fmt.Sprintf("INSERT INTO %s (blob_path,md5sum,bucket_name) VALUES ('%s', '%s', '%s');",
-		m.MySQL.Table, object.ObjectPath, object.Etag, object.BucketName)
+		m.MySQL.Table, object.ObjectPath, object.Info.MD5, object.BucketName)
 
 	rows, err := db.Query(queryClause)
 	if err != nil {
