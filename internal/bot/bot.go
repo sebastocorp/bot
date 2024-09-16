@@ -33,6 +33,7 @@ type BotT struct {
 	ObjectManager    objectStorage.ManagerT
 	DatabaseManager  database.ManagerT
 	ParallelRequests int
+	UseHashRing      bool
 
 	API APIT
 }
@@ -134,6 +135,16 @@ func NewBotServer() (botServer *BotT, err error) {
 	if botServer.Server.Name == "" {
 		err = fmt.Errorf("server name not provided in 'BOT_SERVER_NAME' environment variable")
 		return botServer, err
+	}
+
+	botServer.UseHashRing = false
+	useHashRing := os.Getenv("BOT_WORKER_USE_HASHRING")
+	if useHashRing != "" {
+		botServer.UseHashRing, err = strconv.ParseBool(useHashRing)
+		if err != nil {
+			err = fmt.Errorf("invalid environment variable 'BOT_WORKER_USE_HASHRING' value: %s", err.Error())
+			return botServer, err
+		}
 	}
 
 	if botServer.ProxyHost == "" {

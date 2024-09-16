@@ -91,18 +91,21 @@ func (b *BotT) processTransferRequest(wg *sync.WaitGroup, itemPath string, reque
 	defer wg.Done()
 
 	logger.Logger.Infof("process '%s' transfer request '%v' in '%s'", itemPath, request, b.Server.Name)
-	serverName := HashRing.GetNode(itemPath)
 
-	if serverName != b.Server.Name {
-		// send transfer request to owner
-		logger.Logger.Infof("moving '%s' transfer request from '%s' to '%s'", itemPath, b.Server.Name, serverName)
+	if b.UseHashRing {
+		serverName := HashRing.GetNode(itemPath)
 
-		err := b.moveTransferRequest(serverName, request)
-		if err == nil {
-			return
+		if serverName != b.Server.Name {
+			// send transfer request to owner
+			logger.Logger.Infof("moving '%s' transfer request from '%s' to '%s'", itemPath, b.Server.Name, serverName)
+
+			err := b.moveTransferRequest(serverName, request)
+			if err == nil {
+				return
+			}
+
+			logger.Logger.Errorf("unable to move '%s' transfer request to '%s': %s", itemPath, serverName, err.Error())
 		}
-
-		logger.Logger.Errorf("unable to move '%s' transfer request to '%s': %s", itemPath, serverName, err.Error())
 	}
 
 	logger.Logger.Infof("execute '%s' transfer request in '%s'", itemPath, b.Server.Name)
