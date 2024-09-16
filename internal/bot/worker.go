@@ -98,11 +98,11 @@ func (b *BotT) processTransferRequest(wg *sync.WaitGroup, itemPath string, reque
 		logger.Logger.Infof("moving '%s' transfer request from '%s' to '%s'", itemPath, b.Server.Name, serverName)
 
 		err := b.moveTransferRequest(serverName, request)
-		if err != nil {
-			logger.Logger.Errorf("unable to move '%s' transfer request to '%s'", itemPath, serverName)
+		if err == nil {
+			return
 		}
 
-		return
+		logger.Logger.Errorf("unable to move '%s' transfer request to '%s': %s", itemPath, serverName, err.Error())
 	}
 
 	logger.Logger.Infof("execute '%s' transfer request in '%s'", itemPath, b.Server.Name)
