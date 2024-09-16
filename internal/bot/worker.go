@@ -92,7 +92,7 @@ func (b *BotT) processTransferRequest(wg *sync.WaitGroup, itemPath string, reque
 
 	logger.Logger.Infof("process '%s' transfer request '%v' in '%s'", itemPath, request, b.Server.Name)
 
-	if b.UseHashRing {
+	if b.HashRingEnabled {
 		serverName := HashRing.GetNode(itemPath)
 
 		if serverName != b.Server.Name {

@@ -143,7 +143,7 @@ func (b *BotT) synchronizerFlow() {
 }
 
 func (b *BotT) InitSynchronizer() {
-	if b.UseHashRing {
+	if b.HashRingEnabled {
 		go b.synchronizerFlow()
 	}
 }

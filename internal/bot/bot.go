@@ -25,7 +25,7 @@ var TransferRequestPool = TransferRequestPoolT{
 	pool: map[string]TransferT{},
 }
 
-var HashRing = hashring.NewHashRing(1)
+var HashRing *hashring.HashRingT
 
 type BotT struct {
 	Server           ServerT
@@ -33,7 +33,8 @@ type BotT struct {
 	ObjectManager    objectStorage.ManagerT
 	DatabaseManager  database.ManagerT
 	ParallelRequests int
-	UseHashRing      bool
+	HashRingEnabled  bool
+	HashRingVNodes   int
 
 	API APIT
 }
@@ -137,14 +138,28 @@ func NewBotServer() (botServer *BotT, err error) {
 		return botServer, err
 	}
 
-	botServer.UseHashRing = false
-	useHashRing := os.Getenv("BOT_WORKER_USE_HASHRING")
-	if useHashRing != "" {
-		botServer.UseHashRing, err = strconv.ParseBool(useHashRing)
+	botServer.HashRingEnabled = false
+	hashRingEnabled := os.Getenv("BOT_HASHRING_ENABLED")
+	if hashRingEnabled != "" {
+		botServer.HashRingEnabled, err = strconv.ParseBool(hashRingEnabled)
 		if err != nil {
-			err = fmt.Errorf("invalid environment variable 'BOT_WORKER_USE_HASHRING' value: %s", err.Error())
+			err = fmt.Errorf("invalid environment variable 'BOT_HASHRING_ENABLED' value: %s", err.Error())
 			return botServer, err
 		}
+	}
+
+	if botServer.HashRingEnabled {
+		botServer.HashRingVNodes = 1
+		hashRingVNodes := os.Getenv("BOT_HASHRING_VNODES")
+		if hashRingVNodes != "" {
+			botServer.HashRingVNodes, err = strconv.Atoi(hashRingVNodes)
+			if err != nil {
+				err = fmt.Errorf("invalid environment variable 'BOT_HASHRING_VNODES' value: %s", err.Error())
+				return botServer, err
+			}
+		}
+
+		HashRing = hashring.NewHashRing(botServer.HashRingVNodes)
 	}
 
 	if botServer.ProxyHost == "" {
