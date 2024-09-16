@@ -120,9 +120,9 @@ func (b *BotT) workerFlow() {
 		transferRequestMap := TransferRequestPool.GetTransferRequestMap()
 
 		wg := sync.WaitGroup{}
+		wg.Add(b.ParallelRequests)
 		count := 0
 		for itemPath, request := range transferRequestMap {
-			wg.Add(1)
 
 			go b.processTransferRequest(&wg, itemPath, request)
 
@@ -135,7 +135,6 @@ func (b *BotT) workerFlow() {
 		}
 
 		wg.Wait()
-		time.Sleep(1 * time.Second) // REMOVE THIS IN THE END
 	}
 }
 
