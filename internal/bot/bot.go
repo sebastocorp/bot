@@ -193,13 +193,25 @@ func NewBotServer() (botServer *BotT, err error) {
 
 	// ParallelRequestNumber
 
+	s3secure := false
+	s3secureStr := os.Getenv("BOT_SERVER_S3_SECURE")
+	if s3secureStr != "" {
+		s3secure, err = strconv.ParseBool(s3secureStr)
+		if err != nil {
+			err = fmt.Errorf("invalid environment variable 'BOT_SERVER_S3_SECURE' value: %s", err.Error())
+			return botServer, err
+		}
+	}
+
 	ctx := context.Background()
 	botServer.ObjectManager, err = objectStorage.NewManager(
 		ctx,
 		objectStorage.S3T{
 			Endpoint:        os.ExpandEnv(os.Getenv("BOT_SERVER_S3_ENDPOINT")),
+			Region:          os.ExpandEnv(os.Getenv("BOT_SERVER_S3_REGION")),
 			AccessKeyID:     os.ExpandEnv(os.Getenv("BOT_SERVER_S3_ACCESS_KEY")),
 			SecretAccessKey: os.ExpandEnv(os.Getenv("BOT_SERVER_S3_SECRET_ACCESS_KEY")),
+			Secure:          s3secure,
 		},
 		objectStorage.GCST{
 			CredentialsFile: os.ExpandEnv(os.Getenv("BOT_SERVER_GCS_CREDENTIALS_FILE")),

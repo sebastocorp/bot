@@ -23,8 +23,10 @@ type ManagerT struct {
 type S3T struct {
 	Client          *minio.Client
 	Endpoint        string
+	Region          string
 	AccessKeyID     string
 	SecretAccessKey string
+	Secure          bool
 }
 
 type GCST struct {
@@ -53,7 +55,8 @@ func NewManager(ctx context.Context, s3 S3T, gcs GCST) (man ManagerT, err error)
 		man.S3.Endpoint,
 		&minio.Options{
 			Creds:  credentials.NewStaticV4(man.S3.AccessKeyID, man.S3.SecretAccessKey, ""),
-			Secure: true,
+			Region: man.S3.Region,
+			Secure: man.S3.Secure,
 		},
 	)
 	if err != nil {
