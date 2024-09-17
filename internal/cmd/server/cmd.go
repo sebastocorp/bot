@@ -24,6 +24,7 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd.Flags().String(logLevelFlagName, "info", "Verbosity level for logs")
+	cmd.Flags().String(configFlagName, "config.yaml", "Bot service configuration")
 
 	return cmd
 }

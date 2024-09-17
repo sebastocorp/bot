@@ -11,14 +11,17 @@ const (
 	// FLAG NAMES
 
 	logLevelFlagName = `log-level`
+	configFlagName   = `config`
 
 	// ERROR MESSAGES
 
 	logLevelFlagErrMsg = "unable to get flag --log-level: %s"
+	configFlagErrMsg   = "unable to get flag --config: %s"
 )
 
 type serverFlagsT struct {
 	logLevel string
+	config   string
 }
 
 func (d *serverT) getFlags(cmd *cobra.Command) (err error) {
@@ -37,6 +40,11 @@ func (d *serverT) getFlags(cmd *cobra.Command) (err error) {
 	logger.InitLogger(d.context, level)
 
 	// Get server command flags
+
+	d.flags.config, err = cmd.Flags().GetString(configFlagName)
+	if err != nil {
+		log.Fatalf(configFlagErrMsg, err.Error())
+	}
 
 	return err
 }

@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"bot/internal/bot"
+	"bot/internal/global"
 	"bot/internal/logger"
 )
 
@@ -16,7 +17,7 @@ type serverT struct {
 }
 
 func (d *serverT) flow() {
-	botServer, err := bot.NewBotServer()
+	botServer, err := bot.NewBotServer(d.flags.config)
 	if err != nil {
 		logger.Logger.Fatalf("unable to init bot server: %s", err.Error())
 	}
@@ -30,12 +31,12 @@ func (d *serverT) flow() {
 
 	// check host is added in load balancer
 	botServer.CheckOwnHost()
-	logger.Logger.Infof("found '%s' own host in '%s' proxy host resolution", botServer.Server.Address, botServer.ProxyHost)
+	logger.Logger.Infof("found '%s' own host in '%s' proxy host resolution", global.ServerConfig.APIService.Address, global.ServerConfig.HashRingWorker.Proxy)
 
 	// Init bot server
-	botServer.InitSynchronizer()
-	botServer.InitWorker()
-	botServer.InitAPI()
+	botServer.HashRingWorker.InitSynchronizer()
+	botServer.DatabaseWorker.InitWorker()
+	botServer.APIService.InitAPI()
 
 	<-shutdownActionsDone
 }

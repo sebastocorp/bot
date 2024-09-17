@@ -3,63 +3,95 @@ package bot
 import (
 	"context"
 	"fmt"
-	"maps"
 	"net"
 	"os"
 	"slices"
-	"strconv"
-	"sync"
 	"time"
 
+	"bot/internal/apiService"
 	"bot/internal/database"
+	"bot/internal/databaseWorker"
+	"bot/internal/global"
 	"bot/internal/hashring"
+	"bot/internal/hashringWorker"
 	"bot/internal/logger"
 	"bot/internal/objectStorage"
+	"bot/internal/objectWorker"
 )
 
-var ServerInstancesPool = ServerInstancesPoolT{
-	servers: map[string]ServerT{},
-}
-
-var TransferRequestPool = TransferRequestPoolT{
-	pool: map[string]TransferT{},
-}
-
-var HashRing *hashring.HashRingT
-
 type BotT struct {
-	Server           ServerT
-	ProxyHost        string
-	ObjectManager    objectStorage.ManagerT
-	DatabaseManager  database.ManagerT
-	ParallelRequests int
-	HashRingEnabled  bool
-	HashRingVNodes   int
-
-	API APIT
-}
-
-type ServerInstancesPoolT struct {
-	mu      sync.Mutex
-	servers map[string]ServerT
-}
-
-type ServerT struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
-}
-
-type TransferRequestPoolT struct {
-	mu   sync.Mutex
-	pool map[string]TransferT
-}
-
-type TransferT struct {
-	From objectStorage.ObjectT `json:"from"`
-	To   objectStorage.ObjectT `json:"to"`
+	APIService     apiService.APIServiceT
+	ObjectWorker   objectWorker.ObjectWorkerT
+	DatabaseWorker databaseWorker.DatabaseWorkerT
+	HashRingWorker hashringWorker.HashRingWorkerT
 }
 
 // BOT SERVER FUNCTIONS
+
+func NewBotServer(config string) (botServer *BotT, err error) {
+	botServer = &BotT{}
+
+	err = global.ParseConfig(config)
+	if err != nil {
+		return botServer, err
+	}
+
+	if global.ServerConfig.APIService.Address == "" {
+		global.ServerConfig.APIService.Address, err = getOwnIP()
+		if err != nil {
+			return botServer, err
+		}
+	}
+
+	if global.ServerConfig.HashRingWorker.Enabled {
+		if global.ServerConfig.HashRingWorker.VNodes <= 0 {
+			global.ServerConfig.HashRingWorker.VNodes = 1
+		}
+
+		global.HashRing = hashring.NewHashRing(global.ServerConfig.HashRingWorker.VNodes)
+	}
+
+	if global.ServerConfig.ObjectWorker.ParallelRequests <= 0 {
+		global.ServerConfig.ObjectWorker.ParallelRequests = 1
+	}
+
+	if global.ServerConfig.DatabaseWorker.ParallelRequests <= 0 {
+		global.ServerConfig.DatabaseWorker.ParallelRequests = 1
+	}
+
+	if global.ServerConfig.DatabaseWorker.InsertsByConnection <= 0 {
+		global.ServerConfig.DatabaseWorker.InsertsByConnection = 1
+	}
+
+	ctx := context.Background()
+	botServer.ObjectWorker.ObjectManager, err = objectStorage.NewManager(
+		ctx,
+		objectStorage.S3T{
+			Endpoint:        global.ServerConfig.ObjectWorker.ObjectStorage.S3.Endpoint,
+			AccessKeyID:     global.ServerConfig.ObjectWorker.ObjectStorage.S3.AccessKeyID,
+			SecretAccessKey: global.ServerConfig.ObjectWorker.ObjectStorage.S3.SecretAccessKey,
+			Region:          global.ServerConfig.ObjectWorker.ObjectStorage.S3.Region,
+			Secure:          global.ServerConfig.ObjectWorker.ObjectStorage.S3.Secure,
+		},
+		objectStorage.GCST{
+			CredentialsFile: global.ServerConfig.ObjectWorker.ObjectStorage.GCS.CredentialsFile,
+		},
+	)
+	if err != nil {
+		return botServer, err
+	}
+
+	botServer.DatabaseWorker.DatabaseManager, err = database.NewManager(ctx, database.MySQLCredsT{
+		Host:     global.ServerConfig.DatabaseWorker.Database.Host,
+		Port:     global.ServerConfig.DatabaseWorker.Database.Port,
+		User:     global.ServerConfig.DatabaseWorker.Database.Username,
+		Pass:     global.ServerConfig.DatabaseWorker.Database.Password,
+		Database: global.ServerConfig.DatabaseWorker.Database.Database,
+		Table:    global.ServerConfig.DatabaseWorker.Database.Table,
+	})
+
+	return botServer, err
+}
 
 func (b *BotT) CheckOwnHost() {
 
@@ -67,27 +99,27 @@ func (b *BotT) CheckOwnHost() {
 	for !found {
 		time.Sleep(6 * time.Second)
 
-		discoveredHosts, err := net.LookupHost(b.ProxyHost)
+		discoveredHosts, err := net.LookupHost(global.ServerConfig.HashRingWorker.Proxy)
 		if err != nil {
-			logger.Logger.Errorf("unable to look up in '%s' proxy host: %s", b.ProxyHost, err.Error())
+			logger.Logger.Errorf("unable to look up in '%s' proxy host: %s", global.ServerConfig.HashRingWorker.Proxy, err.Error())
 			continue
 		}
 
-		if slices.Contains(discoveredHosts, b.Server.Address) {
+		if slices.Contains(discoveredHosts, global.ServerConfig.APIService.Address) {
 			found = true
 			continue
 		}
 
-		logger.Logger.Errorf("unable to find '%s' own host in '%s' proxy host resolution", b.Server.Address, b.ProxyHost)
+		logger.Logger.Errorf("unable to find '%s' own host in '%s' proxy host resolution", global.ServerConfig.APIService.Address, global.ServerConfig.HashRingWorker.Proxy)
 	}
 }
 
-func (b *BotT) getOwnIP() (err error) {
+func getOwnIP() (ownAddress string, err error) {
 
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		err = fmt.Errorf("error getting network interfaces: %s", err.Error())
-		return err
+		return ownAddress, err
 	}
 
 	localAddressList := []string{}
@@ -99,199 +131,24 @@ func (b *BotT) getOwnIP() (err error) {
 
 	if len(localAddressList) != 1 {
 		err = fmt.Errorf("too much IPs from network interfaces '%v'", localAddressList)
-		return err
+		return ownAddress, err
 	}
 
-	b.Server.Address = localAddressList[0]
+	ownAddress = localAddressList[0]
 
-	return err
+	return ownAddress, err
 }
 
 func (b *BotT) ShutdownActions(done chan bool, signal chan os.Signal) {
 	sig := <-signal
-	logger.Logger.Infof("executing shutdown actions in '%s' with signal '%s'", b.Server.Name, sig.String())
+	logger.Logger.Infof("executing shutdown actions with signal '%s'", sig.String())
 
 	// stop API
-	ctx, cancel := context.WithTimeout(b.API.ctx, 1*time.Second)
-	if err := b.API.HttpServer.Shutdown(ctx); err != nil {
+	ctx, cancel := context.WithTimeout(b.APIService.Ctx, 1*time.Second)
+	if err := b.APIService.HttpServer.Shutdown(ctx); err != nil {
 		logger.Logger.Fatalf("error in server Shutdown: %s", err.Error())
 	}
 
 	cancel()
 	done <- true
-}
-
-func NewBotServer() (botServer *BotT, err error) {
-	botServer = &BotT{
-		Server: ServerT{
-			Name:    os.ExpandEnv(os.Getenv("BOT_SERVER_NAME")),
-			Address: os.ExpandEnv(os.Getenv("BOT_SERVER_ADDRESS")),
-		},
-		ProxyHost: os.ExpandEnv(os.Getenv("BOT_SERVER_PROXY_HOST")),
-		API: APIT{
-			Port: os.ExpandEnv(os.Getenv("BOT_SERVER_PORT")),
-		},
-	}
-
-	if botServer.Server.Name == "" {
-		err = fmt.Errorf("server name not provided in 'BOT_SERVER_NAME' environment variable")
-		return botServer, err
-	}
-
-	botServer.HashRingEnabled = false
-	hashRingEnabled := os.Getenv("BOT_HASHRING_ENABLED")
-	if hashRingEnabled != "" {
-		botServer.HashRingEnabled, err = strconv.ParseBool(hashRingEnabled)
-		if err != nil {
-			err = fmt.Errorf("invalid environment variable 'BOT_HASHRING_ENABLED' value: %s", err.Error())
-			return botServer, err
-		}
-	}
-
-	if botServer.HashRingEnabled {
-		botServer.HashRingVNodes = 1
-		hashRingVNodes := os.Getenv("BOT_HASHRING_VNODES")
-		if hashRingVNodes != "" {
-			botServer.HashRingVNodes, err = strconv.Atoi(hashRingVNodes)
-			if err != nil {
-				err = fmt.Errorf("invalid environment variable 'BOT_HASHRING_VNODES' value: %s", err.Error())
-				return botServer, err
-			}
-		}
-
-		HashRing = hashring.NewHashRing(botServer.HashRingVNodes)
-	}
-
-	if botServer.ProxyHost == "" {
-		err = fmt.Errorf("proxy host not provided in 'BOT_PROXY_HOST' environment variable")
-		return botServer, err
-	}
-
-	if botServer.Server.Address == "" {
-		err = botServer.getOwnIP()
-		return botServer, err
-	}
-
-	if botServer.API.Port == "" {
-		botServer.API.Port = "8080"
-	}
-
-	botServer.ParallelRequests = 1
-	parallelRequest := os.Getenv("BOT_WORKER_PARALLEL_REQUESTS")
-	if parallelRequest != "" {
-		botServer.ParallelRequests, err = strconv.Atoi(parallelRequest)
-		if err != nil {
-			err = fmt.Errorf("invalid environment variable 'BOT_WORKER_PARALLEL_REQUESTS' value: %s", err.Error())
-			return botServer, err
-		}
-	}
-
-	if botServer.ParallelRequests <= 0 {
-		err = fmt.Errorf("invalid environment variable 'BOT_WORKER_PARALLEL_REQUESTS' value, must be a positive number")
-		return botServer, err
-	}
-
-	// ParallelRequestNumber
-
-	s3secure := false
-	s3secureStr := os.Getenv("BOT_SERVER_S3_SECURE")
-	if s3secureStr != "" {
-		s3secure, err = strconv.ParseBool(s3secureStr)
-		if err != nil {
-			err = fmt.Errorf("invalid environment variable 'BOT_SERVER_S3_SECURE' value: %s", err.Error())
-			return botServer, err
-		}
-	}
-
-	ctx := context.Background()
-	botServer.ObjectManager, err = objectStorage.NewManager(
-		ctx,
-		objectStorage.S3T{
-			Endpoint:        os.ExpandEnv(os.Getenv("BOT_SERVER_S3_ENDPOINT")),
-			Region:          os.ExpandEnv(os.Getenv("BOT_SERVER_S3_REGION")),
-			AccessKeyID:     os.ExpandEnv(os.Getenv("BOT_SERVER_S3_ACCESS_KEY")),
-			SecretAccessKey: os.ExpandEnv(os.Getenv("BOT_SERVER_S3_SECRET_ACCESS_KEY")),
-			Secure:          s3secure,
-		},
-		objectStorage.GCST{
-			CredentialsFile: os.ExpandEnv(os.Getenv("BOT_SERVER_GCS_CREDENTIALS_FILE")),
-		},
-	)
-	if err != nil {
-		return botServer, err
-	}
-
-	botServer.DatabaseManager, err = database.NewManager(ctx, database.MySQLCredsT{
-		Host:     os.ExpandEnv(os.Getenv("BOT_SERVER_DB_HOST")),
-		Port:     os.ExpandEnv(os.Getenv("BOT_SERVER_DB_PORT")),
-		User:     os.ExpandEnv(os.Getenv("BOT_SERVER_DB_USER")),
-		Pass:     os.ExpandEnv(os.Getenv("BOT_SERVER_DB_PASS")),
-		Database: os.ExpandEnv(os.Getenv("BOT_SERVER_DB_DATABASE")),
-		Table:    os.ExpandEnv(os.Getenv("BOT_SERVER_DB_TABLE")),
-	})
-
-	return botServer, err
-}
-
-// SERVER POOL FUNCTIONS
-
-func (sip *ServerInstancesPoolT) GetPool() (result map[string]ServerT) {
-	result = map[string]ServerT{}
-
-	sip.mu.Lock()
-	maps.Copy(result, sip.servers)
-	sip.mu.Unlock()
-
-	return result
-}
-
-func (sip *ServerInstancesPoolT) GetServersList() (result []ServerT) {
-	pool := sip.GetPool()
-	result = []ServerT{}
-
-	for _, server := range pool {
-		result = append(result, server)
-	}
-
-	return result
-}
-
-func (sip *ServerInstancesPoolT) AddServers(servers []ServerT) {
-	sip.mu.Lock()
-	for _, server := range servers {
-		sip.servers[server.Address] = server
-	}
-	sip.mu.Unlock()
-}
-
-func (sip *ServerInstancesPoolT) RemoveServers(servers []ServerT) {
-	sip.mu.Lock()
-	for _, server := range servers {
-		delete(sip.servers, server.Address)
-	}
-	sip.mu.Unlock()
-}
-
-// REQUEST POOL FUNCTIONS
-
-func (trp *TransferRequestPoolT) AddTransferRequest(transfer TransferT) {
-	trp.mu.Lock()
-	trp.pool[transfer.To.ObjectPath] = transfer
-	trp.mu.Unlock()
-}
-
-func (trp *TransferRequestPoolT) RemoveTransferRequest(transferKey string) {
-	trp.mu.Lock()
-	delete(trp.pool, transferKey)
-	trp.mu.Unlock()
-}
-
-func (trp *TransferRequestPoolT) GetTransferRequestMap() (result map[string]TransferT) {
-	result = map[string]TransferT{}
-
-	trp.mu.Lock()
-	maps.Copy(result, trp.pool)
-	trp.mu.Unlock()
-
-	return result
 }

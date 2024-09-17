@@ -9,6 +9,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.75
 	github.com/spf13/cobra v1.8.1
 	google.golang.org/api v0.192.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -71,5 +72,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240730163845-b1a4ccb954bf // indirect
 	google.golang.org/grpc v1.64.1 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
