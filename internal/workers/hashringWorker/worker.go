@@ -9,22 +9,23 @@ import (
 	"slices"
 	"time"
 
+	"bot/api/v1alpha1"
 	"bot/internal/global"
 	"bot/internal/logger"
-	"bot/internal/pools"
+	"bot/internal/managers/hashring"
 )
 
 type HashRingWorkerT struct {
 }
 
-func (h *HashRingWorkerT) discoverServers() (instancesAddrs []string, err error) {
-	discoveredHosts, err := net.LookupHost(global.ServerConfig.HashRingWorker.Proxy)
+func (h *HashRingWorkerT) discoverServerAddresses() (instancesAddrs []string, err error) {
+	discoveredHosts, err := net.LookupHost(global.Config.HashRingWorker.Proxy)
 	if err != nil {
 		return instancesAddrs, err
 	}
 
 	for _, dHost := range discoveredHosts {
-		if dHost != global.ServerConfig.APIService.Address {
+		if dHost != global.Config.APIService.Address {
 			instancesAddrs = append(instancesAddrs, dHost)
 		}
 	}
@@ -32,8 +33,12 @@ func (h *HashRingWorkerT) discoverServers() (instancesAddrs []string, err error)
 	return instancesAddrs, err
 }
 
-func (h *HashRingWorkerT) checkAPI(address string) (err error) {
-	requestURL := fmt.Sprintf("%s/health", global.ServerReference.URL)
+func (h *HashRingWorkerT) checkHealth(address string) (err error) {
+	requestURL := fmt.Sprintf("http://%s:%s%s",
+		address,
+		global.Config.APIService.Port,
+		global.EndpointHealth,
+	)
 	res, err := http.Get(requestURL)
 	if err != nil {
 		return err
@@ -46,15 +51,19 @@ func (h *HashRingWorkerT) checkAPI(address string) (err error) {
 	return err
 }
 
-func (h *HashRingWorkerT) getServersInfo(addrsAdded []string) (result []pools.ServerT) {
+func (h *HashRingWorkerT) getServersInfo(addrsAdded []string) (result []v1alpha1.ServerT) {
 	for _, address := range addrsAdded {
-		err := h.checkAPI(address)
+		err := h.checkHealth(address)
 		if err != nil {
 			logger.Logger.Errorf("error checking api of instance with address '%s': %s", address, err.Error())
 			continue
 		}
 
-		requestURL := fmt.Sprintf("%s/info", global.ServerReference.URL)
+		requestURL := fmt.Sprintf("http://%s:%s%s",
+			address,
+			global.Config.APIService.Port,
+			global.EndpointInfo,
+		)
 		res, err := http.Get(requestURL)
 		if err != nil {
 			logger.Logger.Errorf("error getting info of instance with address '%s': %s", address, err.Error())
@@ -64,11 +73,12 @@ func (h *HashRingWorkerT) getServersInfo(addrsAdded []string) (result []pools.Se
 		resBodyBytes, err := io.ReadAll(res.Body)
 		if err != nil {
 			logger.Logger.Errorf("error reading info request body of instance with address '%s': %s", address, err.Error())
+			res.Body.Close()
 			continue
 		}
 		res.Body.Close()
 
-		server := pools.ServerT{}
+		server := v1alpha1.ServerT{}
 		err = json.Unmarshal(resBodyBytes, &server)
 		if err != nil {
 			logger.Logger.Errorf("error parsing info request body of instance with address '%s': %s", address, err.Error())
@@ -81,7 +91,7 @@ func (h *HashRingWorkerT) getServersInfo(addrsAdded []string) (result []pools.Se
 	return result
 }
 
-func (h *HashRingWorkerT) getServersPoolChanges(currentServersAddrsList []string) (added []pools.ServerT, removed []pools.ServerT) {
+func (h *HashRingWorkerT) getServersPoolChanges(currentServersAddrsList []string) (added []v1alpha1.ServerT, removed []v1alpha1.ServerT) {
 	storedPool := global.ServerInstancesPool.GetPool()
 
 	for _, server := range storedPool {
@@ -102,17 +112,18 @@ func (h *HashRingWorkerT) getServersPoolChanges(currentServersAddrsList []string
 	return added, removed
 }
 
-func (h *HashRingWorkerT) synchronizerFlow() {
-	if !global.HashRing.InHashRing(global.ServerReference.Name) {
-		global.HashRing.AddNodes([]string{global.ServerReference.Name})
+func (h *HashRingWorkerT) flow() {
+	if global.Config.HashRingWorker.Enabled {
+		global.HashRing = hashring.NewHashRing(global.Config.HashRingWorker.VNodes)
+		global.HashRing.AddNodes([]string{global.Config.Name})
 	}
 
 	for {
 		time.Sleep(2 * time.Second)
 
-		currentServersAddrsList, err := h.discoverServers()
+		currentServersAddrsList, err := h.discoverServerAddresses()
 		if err != nil {
-			logger.Logger.Errorf("unable to discover current servers in '%s' proxy host: %s", global.ServerConfig.HashRingWorker.Proxy, err.Error())
+			logger.Logger.Errorf("unable to discover current servers in '%s' proxy host: %s", global.Config.HashRingWorker.Proxy, err.Error())
 		}
 
 		serversAdded, serversRemoved := h.getServersPoolChanges(currentServersAddrsList)
@@ -145,8 +156,8 @@ func (h *HashRingWorkerT) synchronizerFlow() {
 	}
 }
 
-func (h *HashRingWorkerT) InitSynchronizer() {
-	if global.ServerConfig.HashRingWorker.Enabled {
-		go h.synchronizerFlow()
+func (h *HashRingWorkerT) InitWorker() {
+	if global.Config.HashRingWorker.Enabled {
+		go h.flow()
 	}
 }

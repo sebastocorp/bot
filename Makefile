@@ -1,6 +1,10 @@
-BYNARY ?= bot
+BINARY ?= bot
+
 # Image URL to use all building/pushing image targets
-IMG ?= ghcr.io/sebastocorp/$(BINARY):latest
+IMG_REGISTRY ?= ghcr.io/sebastocorp
+IMG_NAME ?= bot
+IMG_TAG ?= latest
+IMG ?= $(IMG_REGISTRY)/$(IMG_NAME):$(IMG_TAG)
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -85,9 +89,13 @@ check-go-target: ## Check presente of GOOS and GOARCH vars.
 build: fmt vet check-go-target ## Build CLI binary.
 	go build -o bin/$(BINARY)-$(GOOS)-$(GOARCH) cmd/main.go
 
+.PHONY: build-simple
+build-simple: fmt vet ## Build CLI binary.
+	go build -o bin/$(BINARY) cmd/bot/main.go
+
 .PHONY: run
 run: fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go
+	go run ./cmd/$(BINARY)/main.go
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
@@ -97,7 +105,7 @@ docker-build: ## Build docker image with the manager.
 	$(CONTAINER_TOOL) build -t ${IMG} .
 
 .PHONY: docker-push
-docker-push: ## Push docker image with the manager.
+docker-push: docker-build ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple

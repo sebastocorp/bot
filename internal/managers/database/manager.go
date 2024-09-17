@@ -1,6 +1,7 @@
 package database
 
 import (
+	"bot/api/v1alpha1"
 	"bot/internal/logger"
 	"context"
 	"database/sql"
@@ -11,23 +12,25 @@ import (
 )
 
 type ManagerT struct {
-	Ctx   context.Context
-	MySQL MySQLT
-}
-
-type MySQLT struct {
-	MySQLCredsT
+	Ctx       context.Context
 	Connector driver.Connector
+	// MySQL MySQLT
+	Table string
 }
 
-type MySQLCredsT struct {
-	Host     string
-	Port     string
-	User     string
-	Pass     string
-	Database string
-	Table    string
-}
+// type MySQLT struct {
+// 	MySQLCredsT
+// 	Connector driver.Connector
+// }
+
+// type MySQLCredsT struct {
+// 	Host     string
+// 	Port     string
+// 	User     string
+// 	Pass     string
+// 	Database string
+// 	Table    string
+// }
 
 type QueryObjectResultT struct {
 	Id         *int
@@ -44,27 +47,27 @@ type ObjectT struct {
 	MD5    string
 }
 
-func NewManager(ctx context.Context, mysqlCreds MySQLCredsT) (man ManagerT, err error) {
+func NewManager(ctx context.Context, db v1alpha1.DatabaseT) (man ManagerT, err error) {
 	man.Ctx = ctx
-	man.MySQL.Host = mysqlCreds.Host
-	man.MySQL.Port = mysqlCreds.Port
-	man.MySQL.User = mysqlCreds.User
-	man.MySQL.Pass = mysqlCreds.Pass
-	man.MySQL.Database = mysqlCreds.Database
-	man.MySQL.Table = mysqlCreds.Table
+	// man.MySQL.Host = db.Host
+	// man.MySQL.Port = db.Port
+	// man.MySQL.User = db.Username
+	// man.MySQL.Pass = db.Password
+	// man.MySQL.Database = db.Database
+	// man.MySQL.Table = db.Table
 
-	if man.MySQL.Table == "" {
+	if db.Table == "" {
 		err = fmt.Errorf("database table not provided")
 		return man, err
 	}
 
 	// Get a database handle.
-	man.MySQL.Connector, err = mysql.NewConnector(&mysql.Config{
-		User:                 man.MySQL.User,
-		Passwd:               man.MySQL.Pass,
+	man.Connector, err = mysql.NewConnector(&mysql.Config{
+		User:                 db.Username,
+		Passwd:               db.Password,
 		Net:                  "tcp",
-		Addr:                 fmt.Sprintf("%s:%s", man.MySQL.Host, man.MySQL.Port),
-		DBName:               man.MySQL.Database,
+		Addr:                 fmt.Sprintf("%s:%s", db.Host, db.Port),
+		DBName:               db.Database,
 		AllowNativePasswords: true,
 	})
 
@@ -72,14 +75,14 @@ func NewManager(ctx context.Context, mysqlCreds MySQLCredsT) (man ManagerT, err 
 }
 
 // GetObject TODO
-func (m *ManagerT) GetObject(object ObjectT) (result QueryObjectResultT, occurrences int, err error) {
+func (m *ManagerT) GetObject(object v1alpha1.ObjectT) (result QueryObjectResultT, occurrences int, err error) {
 
 	// Get a database handle.
-	db := sql.OpenDB(m.MySQL.Connector)
+	db := sql.OpenDB(m.Connector)
 	defer db.Close()
 
 	queryClause := fmt.Sprintf("SELECT * FROM %s WHERE bucket_name='%s' AND blob_path='%s';",
-		m.MySQL.Table, object.Bucket, object.Path)
+		m.Table, object.BucketName, object.ObjectPath)
 
 	rows, err := db.Query(queryClause)
 	if err != nil {
@@ -109,12 +112,12 @@ func (m *ManagerT) GetObject(object ObjectT) (result QueryObjectResultT, occurre
 func (m *ManagerT) InsertObject(object ObjectT) (err error) {
 
 	// Get a database handle.
-	db := sql.OpenDB(m.MySQL.Connector)
+	db := sql.OpenDB(m.Connector)
 	defer db.Close()
 
 	// Insert the object into the database.
 	queryClause := fmt.Sprintf("INSERT INTO %s (blob_path,md5sum,bucket_name) VALUES ('%s', '%s', '%s');",
-		m.MySQL.Table, object.Path, object.MD5, object.Bucket)
+		m.Table, object.Path, object.MD5, object.Bucket)
 
 	rows, err := db.Query(queryClause)
 	if err != nil {
@@ -125,15 +128,15 @@ func (m *ManagerT) InsertObject(object ObjectT) (err error) {
 	return err
 }
 
-func (m *ManagerT) InsertObjectsIfNotExist(objectList []ObjectT) (err error) {
+func (m *ManagerT) InsertObjectsIfNotExist(objectList []v1alpha1.DatabaseRequestT) (err error) {
 
 	// Get a database handle.
-	db := sql.OpenDB(m.MySQL.Connector)
+	db := sql.OpenDB(m.Connector)
 	defer db.Close()
 
 	for _, object := range objectList {
 		searchQueryClause := fmt.Sprintf("SELECT * FROM %s WHERE bucket_name='%s' AND blob_path='%s';",
-			m.MySQL.Table, object.Bucket, object.Path)
+			m.Table, object.BucketName, object.ObjectPath)
 
 		searchRows, err := db.Query(searchQueryClause)
 		if err != nil {
@@ -163,7 +166,7 @@ func (m *ManagerT) InsertObjectsIfNotExist(objectList []ObjectT) (err error) {
 		if occurrences == 0 {
 			// Insert the object into the database.
 			insertQueryClause := fmt.Sprintf("INSERT INTO %s (blob_path,md5sum,bucket_name) VALUES ('%s', '%s', '%s');",
-				m.MySQL.Table, object.Path, object.MD5, object.Bucket)
+				m.Table, object.ObjectPath, object.MD5, object.BucketName)
 
 			insertRows, err := db.Query(insertQueryClause)
 			if err != nil {

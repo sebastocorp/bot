@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"bot/api/v1alpha1"
 	"bot/internal/global"
 	"bot/internal/logger"
-	"bot/internal/objectStorage"
-	"bot/internal/pools"
+	"bot/internal/managers/objectStorage"
 )
 
 type ObjectWorkerT struct {
@@ -20,7 +20,7 @@ type ObjectWorkerT struct {
 
 // WORKER Functions
 
-func (o *ObjectWorkerT) executeTransferRequest(request pools.TransferT) (err error) {
+func (o *ObjectWorkerT) executeTransferRequest(request v1alpha1.TransferRequestT) (err error) {
 	// check if destination object already exist
 	destInfo, err := o.ObjectManager.S3ObjectExist(request.To)
 	if err != nil {
@@ -48,32 +48,18 @@ func (o *ObjectWorkerT) executeTransferRequest(request pools.TransferT) (err err
 		request.To.Info = sourceInfo
 	}
 
-	global.DatabaseRequestPool.AddRequest(pools.DatabaseRequestT{
+	global.DatabaseRequestPool.AddRequest(v1alpha1.DatabaseRequestT{
 		BucketName: request.To.BucketName,
 		ObjectPath: request.To.ObjectPath,
 		MD5:        request.To.Info.MD5,
 	})
 
-	// // Get the object from the database
-	// _, occurrences, err := o.DatabaseManager.GetObject(request.To)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// // Insert the object in the database
-	// if occurrences == 0 {
-	// 	err = o.DatabaseManager.InsertObject(request.To)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
 	return err
 }
 
-func (o *ObjectWorkerT) moveTransferRequest(serverName string, request pools.TransferT) (err error) {
+func (o *ObjectWorkerT) moveTransferRequest(serverName string, request v1alpha1.TransferRequestT) (err error) {
 	pool := global.ServerInstancesPool.GetPool()
-	serverToSend := pools.ServerT{}
+	serverToSend := v1alpha1.ServerT{}
 	for _, server := range pool {
 		if server.Name == serverName {
 			serverToSend = server
@@ -88,7 +74,7 @@ func (o *ObjectWorkerT) moveTransferRequest(serverName string, request pools.Tra
 
 	http.DefaultClient.Timeout = 100 * time.Millisecond
 	// requestURL := fmt.Sprintf("http://%s:%s/transfer", serverToSend.Address, o.Config.Port)
-	requestURL := fmt.Sprintf("http://%s:%s/transfer", serverToSend.Address, "8080")
+	requestURL := fmt.Sprintf("http://%s:%s/transfer", serverToSend.Address, global.Config.APIService.Port)
 	respBody, err := http.Post(requestURL, global.HeaderContentTypeAppJson, bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		return err
@@ -98,15 +84,15 @@ func (o *ObjectWorkerT) moveTransferRequest(serverName string, request pools.Tra
 	return err
 }
 
-func (o *ObjectWorkerT) processTransferRequest(wg *sync.WaitGroup, itemPath string, request pools.TransferT) {
+func (o *ObjectWorkerT) processTransferRequest(wg *sync.WaitGroup, itemPath string, request v1alpha1.TransferRequestT) {
 	defer wg.Done()
 
 	logger.Logger.Infof("process '%s' transfer request '%v'", itemPath, request)
 
-	if global.ServerConfig.HashRingWorker.Enabled {
+	if global.Config.HashRingWorker.Enabled {
 		serverName := global.HashRing.GetNode(itemPath)
 
-		if serverName != global.ServerConfig.Name {
+		if serverName != global.Config.Name {
 			// send transfer request to owner
 			logger.Logger.Infof("moving '%s' transfer request to '%s'", itemPath, serverName)
 
@@ -131,7 +117,7 @@ func (o *ObjectWorkerT) processTransferRequest(wg *sync.WaitGroup, itemPath stri
 func (o *ObjectWorkerT) workerFlow() {
 	for {
 		// CONSUME OBJECT TO MIGRATE FROM MAP OR WAIT
-		transferRequestMap := global.TransferRequestPool.GetTransferRequestMap()
+		transferRequestMap := global.TransferRequestPool.GetPool()
 
 		wg := sync.WaitGroup{}
 		count := 0
@@ -141,9 +127,9 @@ func (o *ObjectWorkerT) workerFlow() {
 			go o.processTransferRequest(&wg, itemPath, request)
 
 			// remove request from pool
-			global.TransferRequestPool.RemoveTransferRequest(itemPath)
+			global.TransferRequestPool.RemoveRequest(itemPath)
 
-			if count++; count >= global.ServerConfig.ObjectWorker.ParallelRequests {
+			if count++; count >= global.Config.ObjectWorker.ParallelRequests {
 				break
 			}
 		}

@@ -31,10 +31,11 @@ func (d *serverT) flow() {
 
 	// check host is added in load balancer
 	botServer.CheckOwnHost()
-	logger.Logger.Infof("found '%s' own host in '%s' proxy host resolution", global.ServerConfig.APIService.Address, global.ServerConfig.HashRingWorker.Proxy)
+	logger.Logger.Infof("found '%s' own host in '%s' proxy host resolution", global.Config.APIService.Address, global.Config.HashRingWorker.Proxy)
 
 	// Init bot server
-	botServer.HashRingWorker.InitSynchronizer()
+	botServer.HashRingWorker.InitWorker()
+	botServer.ObjectWorker.InitWorker()
 	botServer.DatabaseWorker.InitWorker()
 	botServer.APIService.InitAPI()
 

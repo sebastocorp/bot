@@ -1,25 +1,29 @@
 package global
 
 import (
-	"bot/api/v1alpha1"
-	"bot/internal/hashring"
-	"bot/internal/pools"
 	"os"
+
+	"bot/api/v1alpha1"
+	"bot/internal/managers/hashring"
+	"bot/internal/pools"
 
 	"gopkg.in/yaml.v3"
 )
 
 const (
 	HeaderContentTypeAppJson = "application/json"
+
+	EndpointHealth          = "/health"
+	EndpointInfo            = "/info"
+	EndpointRequestObject   = "/transfer"
+	EndpointRequestDatabase = "/request/database"
 )
 
-var ServerConfig v1alpha1.BOTConfigT
-
-var ServerReference pools.ServerT
+var Config v1alpha1.BOTConfigT
 
 var HashRing *hashring.HashRingT
 
-var ServerInstancesPool = pools.NewServerInstancesPool()
+var ServerInstancesPool = pools.NewServerPool()
 
 var TransferRequestPool = pools.NewTransferRequestPool()
 
@@ -33,7 +37,7 @@ func ParseConfig(filepath string) (err error) {
 
 	configBytes = []byte(os.ExpandEnv(string(configBytes)))
 
-	err = yaml.Unmarshal(configBytes, &ServerConfig)
+	err = yaml.Unmarshal(configBytes, &Config)
 	if err != nil {
 		return err
 	}

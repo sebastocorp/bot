@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"bot/api/v1alpha1"
 	"bot/internal/global"
 	"bot/internal/logger"
-	"bot/internal/pools"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,7 +24,11 @@ func (a *APIServiceT) getHealth(c *gin.Context) {
 }
 
 func (a *APIServiceT) getInfo(c *gin.Context) {
-	c.JSON(http.StatusOK, global.ServerReference)
+	server := v1alpha1.ServerT{
+		Name:    global.Config.Name,
+		Address: global.Config.APIService.Address,
+	}
+	c.JSON(http.StatusOK, server)
 }
 
 // example:
@@ -44,28 +48,44 @@ func (a *APIServiceT) getInfo(c *gin.Context) {
 // 	}
 // }
 
-func (a *APIServiceT) postTransfer(c *gin.Context) {
-	transfer := pools.TransferT{}
+func (a *APIServiceT) postTransferRequest(c *gin.Context) {
+	transfer := v1alpha1.TransferRequestT{}
 	if err := c.ShouldBindJSON(&transfer); err != nil {
 		logger.Logger.Errorf("error parsing transfer request: %s", err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	global.TransferRequestPool.AddTransferRequest(transfer)
+	global.TransferRequestPool.AddRequest(transfer)
 
 	logger.Logger.Infof("transfer request '%v' added in pool", transfer)
 
 	c.JSON(http.StatusOK, gin.H{"message": "OK"})
 }
 
+func (a *APIServiceT) postDatabaseRequest(c *gin.Context) {
+	request := v1alpha1.DatabaseRequestT{}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		logger.Logger.Errorf("error parsing database request: %s", err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	global.DatabaseRequestPool.AddRequest(request)
+
+	logger.Logger.Infof("database request '%v' added in pool", request)
+
+	c.JSON(http.StatusOK, gin.H{"message": "OK"})
+}
+
 func (a *APIServiceT) InitAPI() {
 	router := gin.Default()
-	router.GET("/health", a.getHealth)
-	router.GET("/info", a.getInfo)
-	router.POST("/transfer", a.postTransfer)
+	router.GET(global.EndpointHealth, a.getHealth)
+	router.GET(global.EndpointInfo, a.getInfo)
+	router.POST(global.EndpointRequestObject, a.postTransferRequest)
+	router.POST(global.EndpointRequestDatabase, a.postDatabaseRequest)
 
-	addr := fmt.Sprintf("%s:%s", global.ServerConfig.APIService.Address, global.ServerConfig.APIService.Port)
+	addr := fmt.Sprintf("%s:%s", global.Config.APIService.Address, global.Config.APIService.Port)
 
 	a.Ctx = context.Background()
 	a.HttpServer = &http.Server{
@@ -76,7 +96,7 @@ func (a *APIServiceT) InitAPI() {
 	go func() {
 		// service connections
 		if err := a.HttpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Logger.Fatalf("error closing '%s' API: %s\n", global.ServerConfig.Name, err.Error())
+			logger.Logger.Fatalf("error closing '%s' API: %s\n", global.Config.Name, err.Error())
 		}
 	}()
 }

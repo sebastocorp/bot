@@ -3,9 +3,9 @@ package v1alpha1
 type BOTConfigT struct {
 	Name           string                `yaml:"name"`
 	APIService     APIServiceConfigT     `yaml:"apiService"`
-	ObjectWorker   ObjectWorkerConfigT   `yaml:"objectStorageWorker"`
+	ObjectWorker   ObjectWorkerConfigT   `yaml:"objectWorker"`
 	DatabaseWorker DatabaseWorkerConfigT `yaml:"databaseWorker"`
-	HashRingWorker HashRingWorkerConfigT `yaml:"hashringWorker,omniempty"`
+	HashRingWorker HashRingWorkerConfigT `yaml:"hashringWorker,omitempty"`
 }
 
 //--------------------------------------------------------------
@@ -13,8 +13,8 @@ type BOTConfigT struct {
 //--------------------------------------------------------------
 
 type APIServiceConfigT struct {
-	Port    string `yaml:"port"`
 	Address string `yaml:"address"`
+	Port    string `yaml:"port"`
 }
 
 //--------------------------------------------------------------
@@ -33,10 +33,10 @@ type ObjectStorageT struct {
 
 type S3T struct {
 	Endpoint        string `yaml:"endpoint"`
-	AccessKeyID     string `yaml:"accessKeyId"`
+	AccessKeyID     string `yaml:"accessKeyID"`
 	SecretAccessKey string `yaml:"secretAccessKey"`
-	Region          string `yaml:"region,omniempty"`
-	Secure          bool   `yaml:"secure,omniempty"`
+	Region          string `yaml:"region,omitempty"`
+	Secure          bool   `yaml:"secure,omitempty"`
 }
 
 type GCST struct {
@@ -48,8 +48,8 @@ type GCST struct {
 //--------------------------------------------------------------
 
 type DatabaseWorkerConfigT struct {
-	ParallelRequests    int       `yaml:"parallelRequests,omniempty"`
-	InsertsByConnection int       `yaml:"insertsByConnection,omniempty"`
+	ParallelRequests    int       `yaml:"parallelRequests,omitempty"`
+	InsertsByConnection int       `yaml:"insertsByConnection,omitempty"`
 	Database            DatabaseT `yaml:"database"`
 }
 

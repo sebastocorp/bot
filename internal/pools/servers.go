@@ -3,29 +3,23 @@ package pools
 import (
 	"maps"
 	"sync"
+
+	"bot/api/v1alpha1"
 )
 
 type ServerInstancesPoolT struct {
 	mu      sync.Mutex
-	servers map[string]ServerT
+	servers map[string]v1alpha1.ServerT
 }
 
-type ServerT struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
-	URL     string `json:"url"`
-}
-
-func NewServerInstancesPool() ServerInstancesPoolT {
-	return ServerInstancesPoolT{
-		servers: map[string]ServerT{},
+func NewServerPool() *ServerInstancesPoolT {
+	return &ServerInstancesPoolT{
+		servers: map[string]v1alpha1.ServerT{},
 	}
 }
 
-// SERVER POOL FUNCTIONS
-
-func (pool *ServerInstancesPoolT) GetPool() (result map[string]ServerT) {
-	result = map[string]ServerT{}
+func (pool *ServerInstancesPoolT) GetPool() (result map[string]v1alpha1.ServerT) {
+	result = map[string]v1alpha1.ServerT{}
 
 	pool.mu.Lock()
 	maps.Copy(result, pool.servers)
@@ -34,9 +28,9 @@ func (pool *ServerInstancesPoolT) GetPool() (result map[string]ServerT) {
 	return result
 }
 
-func (pool *ServerInstancesPoolT) GetServersList() (result []ServerT) {
+func (pool *ServerInstancesPoolT) GetServersList() (result []v1alpha1.ServerT) {
 	servers := pool.GetPool()
-	result = []ServerT{}
+	result = []v1alpha1.ServerT{}
 
 	for _, server := range servers {
 		result = append(result, server)
@@ -45,7 +39,7 @@ func (pool *ServerInstancesPoolT) GetServersList() (result []ServerT) {
 	return result
 }
 
-func (pool *ServerInstancesPoolT) AddServers(servers []ServerT) {
+func (pool *ServerInstancesPoolT) AddServers(servers []v1alpha1.ServerT) {
 	pool.mu.Lock()
 	for _, server := range servers {
 		pool.servers[server.Address] = server
@@ -53,7 +47,7 @@ func (pool *ServerInstancesPoolT) AddServers(servers []ServerT) {
 	pool.mu.Unlock()
 }
 
-func (pool *ServerInstancesPoolT) RemoveServers(servers []ServerT) {
+func (pool *ServerInstancesPoolT) RemoveServers(servers []v1alpha1.ServerT) {
 	pool.mu.Lock()
 	for _, server := range servers {
 		delete(pool.servers, server.Address)

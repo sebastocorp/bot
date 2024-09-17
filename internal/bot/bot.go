@@ -8,15 +8,14 @@ import (
 	"slices"
 	"time"
 
-	"bot/internal/apiService"
-	"bot/internal/database"
-	"bot/internal/databaseWorker"
 	"bot/internal/global"
-	"bot/internal/hashring"
-	"bot/internal/hashringWorker"
 	"bot/internal/logger"
-	"bot/internal/objectStorage"
-	"bot/internal/objectWorker"
+	"bot/internal/managers/database"
+	"bot/internal/managers/objectStorage"
+	"bot/internal/workers/apiService"
+	"bot/internal/workers/databaseWorker"
+	"bot/internal/workers/hashringWorker"
+	"bot/internal/workers/objectWorker"
 )
 
 type BotT struct {
@@ -36,59 +35,44 @@ func NewBotServer(config string) (botServer *BotT, err error) {
 		return botServer, err
 	}
 
-	if global.ServerConfig.APIService.Address == "" {
-		global.ServerConfig.APIService.Address, err = getOwnIP()
+	if global.Config.APIService.Address == "" {
+		global.Config.APIService.Address, err = getOwnIP()
 		if err != nil {
 			return botServer, err
 		}
 	}
 
-	if global.ServerConfig.HashRingWorker.Enabled {
-		if global.ServerConfig.HashRingWorker.VNodes <= 0 {
-			global.ServerConfig.HashRingWorker.VNodes = 1
+	if global.Config.HashRingWorker.Enabled {
+		if global.Config.HashRingWorker.VNodes <= 0 {
+			global.Config.HashRingWorker.VNodes = 1
 		}
-
-		global.HashRing = hashring.NewHashRing(global.ServerConfig.HashRingWorker.VNodes)
 	}
 
-	if global.ServerConfig.ObjectWorker.ParallelRequests <= 0 {
-		global.ServerConfig.ObjectWorker.ParallelRequests = 1
+	if global.Config.ObjectWorker.ParallelRequests <= 0 {
+		global.Config.ObjectWorker.ParallelRequests = 1
 	}
 
-	if global.ServerConfig.DatabaseWorker.ParallelRequests <= 0 {
-		global.ServerConfig.DatabaseWorker.ParallelRequests = 1
+	if global.Config.DatabaseWorker.ParallelRequests <= 0 {
+		global.Config.DatabaseWorker.ParallelRequests = 1
 	}
 
-	if global.ServerConfig.DatabaseWorker.InsertsByConnection <= 0 {
-		global.ServerConfig.DatabaseWorker.InsertsByConnection = 1
+	if global.Config.DatabaseWorker.InsertsByConnection <= 0 {
+		global.Config.DatabaseWorker.InsertsByConnection = 1
 	}
 
 	ctx := context.Background()
 	botServer.ObjectWorker.ObjectManager, err = objectStorage.NewManager(
 		ctx,
-		objectStorage.S3T{
-			Endpoint:        global.ServerConfig.ObjectWorker.ObjectStorage.S3.Endpoint,
-			AccessKeyID:     global.ServerConfig.ObjectWorker.ObjectStorage.S3.AccessKeyID,
-			SecretAccessKey: global.ServerConfig.ObjectWorker.ObjectStorage.S3.SecretAccessKey,
-			Region:          global.ServerConfig.ObjectWorker.ObjectStorage.S3.Region,
-			Secure:          global.ServerConfig.ObjectWorker.ObjectStorage.S3.Secure,
-		},
-		objectStorage.GCST{
-			CredentialsFile: global.ServerConfig.ObjectWorker.ObjectStorage.GCS.CredentialsFile,
-		},
+		global.Config.ObjectWorker.ObjectStorage.S3,
+		global.Config.ObjectWorker.ObjectStorage.GCS,
 	)
 	if err != nil {
 		return botServer, err
 	}
 
-	botServer.DatabaseWorker.DatabaseManager, err = database.NewManager(ctx, database.MySQLCredsT{
-		Host:     global.ServerConfig.DatabaseWorker.Database.Host,
-		Port:     global.ServerConfig.DatabaseWorker.Database.Port,
-		User:     global.ServerConfig.DatabaseWorker.Database.Username,
-		Pass:     global.ServerConfig.DatabaseWorker.Database.Password,
-		Database: global.ServerConfig.DatabaseWorker.Database.Database,
-		Table:    global.ServerConfig.DatabaseWorker.Database.Table,
-	})
+	botServer.DatabaseWorker.DatabaseManager, err = database.NewManager(ctx,
+		global.Config.DatabaseWorker.Database,
+	)
 
 	return botServer, err
 }
@@ -99,18 +83,18 @@ func (b *BotT) CheckOwnHost() {
 	for !found {
 		time.Sleep(6 * time.Second)
 
-		discoveredHosts, err := net.LookupHost(global.ServerConfig.HashRingWorker.Proxy)
+		discoveredHosts, err := net.LookupHost(global.Config.HashRingWorker.Proxy)
 		if err != nil {
-			logger.Logger.Errorf("unable to look up in '%s' proxy host: %s", global.ServerConfig.HashRingWorker.Proxy, err.Error())
+			logger.Logger.Errorf("unable to look up in '%s' proxy host: %s", global.Config.HashRingWorker.Proxy, err.Error())
 			continue
 		}
 
-		if slices.Contains(discoveredHosts, global.ServerConfig.APIService.Address) {
+		if slices.Contains(discoveredHosts, global.Config.APIService.Address) {
 			found = true
 			continue
 		}
 
-		logger.Logger.Errorf("unable to find '%s' own host in '%s' proxy host resolution", global.ServerConfig.APIService.Address, global.ServerConfig.HashRingWorker.Proxy)
+		logger.Logger.Errorf("unable to find '%s' own host in '%s' proxy host resolution", global.Config.APIService.Address, global.Config.HashRingWorker.Proxy)
 	}
 }
 

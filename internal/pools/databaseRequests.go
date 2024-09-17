@@ -3,29 +3,25 @@ package pools
 import (
 	"maps"
 	"sync"
+
+	"bot/api/v1alpha1"
 )
 
 type DatabaseRequestPoolT struct {
 	mu       sync.Mutex
-	requests map[string]DatabaseRequestT
-}
-
-type DatabaseRequestT struct {
-	BucketName string `json:"bucket"`
-	ObjectPath string `json:"path"`
-	MD5        string `json:"md5"`
+	requests map[string]v1alpha1.DatabaseRequestT
 }
 
 func NewDatabaseRequestPool() *DatabaseRequestPoolT {
 	return &DatabaseRequestPoolT{
-		requests: map[string]DatabaseRequestT{},
+		requests: map[string]v1alpha1.DatabaseRequestT{},
 	}
 }
 
 // SERVER POOL FUNCTIONS
 
-func (pool *DatabaseRequestPoolT) GetPool() (result map[string]DatabaseRequestT) {
-	result = map[string]DatabaseRequestT{}
+func (pool *DatabaseRequestPoolT) GetPool() (result map[string]v1alpha1.DatabaseRequestT) {
+	result = map[string]v1alpha1.DatabaseRequestT{}
 
 	pool.mu.Lock()
 	maps.Copy(result, pool.requests)
@@ -34,7 +30,7 @@ func (pool *DatabaseRequestPoolT) GetPool() (result map[string]DatabaseRequestT)
 	return result
 }
 
-func (pool *DatabaseRequestPoolT) AddRequest(request DatabaseRequestT) {
+func (pool *DatabaseRequestPoolT) AddRequest(request v1alpha1.DatabaseRequestT) {
 	pool.mu.Lock()
 	pool.requests[request.ObjectPath] = request
 	pool.mu.Unlock()
@@ -46,7 +42,7 @@ func (pool *DatabaseRequestPoolT) RemoveRequest(key string) {
 	pool.mu.Unlock()
 }
 
-func (pool *DatabaseRequestPoolT) RemoveRequests(requests []DatabaseRequestT) {
+func (pool *DatabaseRequestPoolT) RemoveRequests(requests []v1alpha1.DatabaseRequestT) {
 	pool.mu.Lock()
 	for _, req := range pool.requests {
 		delete(pool.requests, req.ObjectPath)
