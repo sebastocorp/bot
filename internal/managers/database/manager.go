@@ -140,6 +140,7 @@ func (m *ManagerT) InsertObjectsIfNotExist(objectList []v1alpha1.DatabaseRequest
 
 		searchRows, err := db.Query(searchQueryClause)
 		if err != nil {
+			logger.Logger.Errorf("unable to search {bucket: '%s', path '%s'} in database: %s", object.BucketName, object.ObjectPath, err.Error())
 			return err
 		}
 
@@ -157,7 +158,7 @@ func (m *ManagerT) InsertObjectsIfNotExist(objectList []v1alpha1.DatabaseRequest
 		for searchRows.Next() {
 			err = searchRows.Scan(searchResult.Id, searchResult.BlobPath, searchResult.Md5Sum, searchResult.BucketName, searchResult.CreatedAt, searchResult.UpdatedAt)
 			if err != nil {
-				logger.Logger.Errorf("unable to scan database row: %s", err.Error())
+				logger.Logger.Errorf("unable to scan {bucket: '%s', path: '%s'} database row: %s", object.BucketName, object.ObjectPath, err.Error())
 			}
 			occurrences++
 		}

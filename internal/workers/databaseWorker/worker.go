@@ -31,7 +31,7 @@ func (d *DatabaseWorkerT) processRequest(wg *sync.WaitGroup, requests []v1alpha1
 	// Get the object from the database
 	err := d.DatabaseManager.InsertObjectsIfNotExist(objects)
 	if err != nil {
-		logger.Logger.Errorf("unable to process database requests '%v'", requests)
+		logger.Logger.Errorf("unable to process database requests '%v': %s", requests, err.Error())
 	} else {
 		logger.Logger.Infof("success processing database requests '%v'", requests)
 	}
