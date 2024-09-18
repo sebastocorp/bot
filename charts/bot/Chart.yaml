@@ -5,7 +5,7 @@ type: application
 description: >-
   A Helm chart for bot, a service with an API to transfer objects
   between object storage services 
-version: &chartVersionSpec 0.2.0 # chart version
+version: &chartVersionSpec 0.3.0 # chart version
 appVersion: *chartVersionSpec # application version
 kubeVersion: ">=1.22.0-0" # kubernetes version
 home: https://github.com/sebastocorp/bot

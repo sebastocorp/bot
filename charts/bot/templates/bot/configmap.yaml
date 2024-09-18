@@ -1,0 +1,20 @@
+{{ if .Values.bot.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "bot.fullname" . }}-config
+  labels:
+    component: bot
+    {{- include "bot.labels" . | nindent 4 }}
+    {{- with .Values.bot.extraLabels }}
+    {{- toYaml . | nindent 8 }}
+    {{- end }}
+
+  {{- with .Values.bot.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  config.yaml: |-
+    {{- .Values.bot.config | nindent 4 }}
+{{- end }}

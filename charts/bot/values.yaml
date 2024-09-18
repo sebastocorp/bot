@@ -96,34 +96,34 @@ bot:
       valueFrom:
         fieldRef:
           fieldPath: metadata.name
-    - name: BOT_SERVER_ADDRESS
+    - name: BOT_API_ADDRESS
       valueFrom:
         fieldRef:
           fieldPath: status.podIP
-    - name: BOT_SERVER_PORT
+    - name: BOT_API_PORT
       value: "8080"
     - name: GIN_MODE
       value: "release"
   extraEnv: []
-    # - name: BOT_SERVER_S3_ENDPOINT
+    # - name: BOT_OS_S3_ENDPOINT
     #   value: "s3_endpoint.net"
-    # - name: BOT_SERVER_S3_ACCESS_KEY
+    # - name: BOT_OS_S3_ACCESS_KEY
     #   value: "access_key_id"
-    # - name: BOT_SERVER_S3_SECRET_ACCESS_KEY
+    # - name: BOT_OS_S3_SECRET_ACCESS_KEY
     #   value: "secret_access_key"
-    # - name: BOT_SERVER_GCS_CREDENTIALS_FILE
+    # - name: BOT_OS_GCS_CREDENTIALS_FILE
     #   value: "/config/application_default_credentials.json"
-    # - name: BOT_SERVER_DB_HOST
+    # - name: BOT_DB_HOST
     #   value: "db_host"
-    # - name: BOT_SERVER_DB_PORT
+    # - name: BOT_DB_PORT
     #   value: "db_port"
-    # - name: BOT_SERVER_DB_USER
+    # - name: BOT_DB_USER
     #   value: "db_user"
-    # - name: BOT_SERVER_DB_PASS
+    # - name: BOT_DB_PASS
     #   value: "db_pass"
-    # - name: BOT_SERVER_DB_DATABASE
+    # - name: BOT_DB_DATABASE
     #   value: "db_name"
-    # - name: BOT_SERVER_DB_TABLE
+    # - name: BOT_DB_TABLE
     #   value: "db_table"
 
   # extraEnvFrom is a list of extra environment variables coming from external sources.
@@ -271,24 +271,35 @@ bot:
   # such as passwords should be either mounted through extraSecretEnvironmentVars
   # or through a Kube secret.
   config: |
-    transferService:
-      host: "http://example.com"
-      port: "8080"
-      endpoint: "/transfer"
-    osConfig:
-      s3:
-        endpoint: $OSPROXY_S3_ENDPOINT
-        accessKeyId: $OSPROXY_S3_ACCESS_KEY_ID
-        secretAccessKey: $OSPROXY_S3_SECRET_ACCESS_KEY
-    relation:
-      type: pathPrefix # pathPrefix|host
-      buckets:
-        "path/prefix/":
-          frontend:
-            bucketName: front-bucket-name
-            removePathPrefix: "path/to/remove/"
-          backend:
-            bucketName: backend-bucket-name
+    name: $BOT_SERVER_NAME
+    apiService:
+      address: $BOT_API_ADDRESS
+      port: $BOT_API_PORT
+    hashringWorker:
+      enabled: false
+      proxy: $BOT_HR_PROXY
+      vnodes: 1
+    objectWorker:
+      parallelRequests: 1
+      objectStorage:
+        s3:
+          endpoint: "s3.example.com"
+          accessKeyID: $BOT_OS_S3_ACCESS_KEY
+          secretAccessKey: $BOT_OS_S3_SECRET_ACCESS_KEY
+          region: "region"
+          secure: true
+        gcs:
+          credentialsFile: "creds.json"
+    databaseWorker:
+      parallelRequests: 1
+      insertsByConnection: 1
+      database:
+        host: "127.0.0.1"
+        port: "3360"
+        username: $BOT_DB_USER
+        password: $BOT_DB_PASS
+        database: "test"
+        table: "test_data"
 
   # Definition of the serviceAccount used to run Envoy.
   # These options are also used when using an external Envoy server to validate

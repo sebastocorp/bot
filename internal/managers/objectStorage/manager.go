@@ -2,11 +2,9 @@ package objectStorage
 
 import (
 	"bot/api/v1alpha1"
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
-	"io"
 
 	"cloud.google.com/go/storage"
 	"github.com/minio/minio-go/v7"
@@ -83,28 +81,19 @@ func (m *ManagerT) GCSObjectExist(obj v1alpha1.ObjectT) (info v1alpha1.ObjectInf
 	return info, err
 }
 
-func (m *ManagerT) S3DownloadObjectBytes(obj v1alpha1.ObjectT) (b []byte, err error) {
-	// Descargar el objeto desde el bucket
-	object, err := m.S3Client.GetObject(m.Ctx, obj.BucketName, obj.ObjectPath, minio.GetObjectOptions{})
-	if err != nil {
-		return b, err
-	}
-	defer object.Close()
-
-	// read the content from the buffer
-	contentBytes := new(bytes.Buffer)
-	_, err = io.Copy(contentBytes, object)
-	if err != nil {
-		return nil, err
-	}
-
-	b = contentBytes.Bytes()
-
-	return b, err
-}
-
 func (m *ManagerT) TransferObjectFromGCSToS3(src, dst v1alpha1.ObjectT) (info v1alpha1.ObjectInfoT, err error) {
-	srcReader, err := m.GCSClient.Bucket(src.BucketName).Object(src.ObjectPath).NewReader(m.Ctx)
+	object := m.GCSClient.Bucket(src.BucketName).Object(src.ObjectPath)
+	stat, err := object.Attrs(m.Ctx)
+	if err != nil {
+		return info, err
+	}
+
+	info.Exist = true
+	info.MD5 = hex.EncodeToString(stat.MD5)
+	info.Size = stat.Size
+	info.ContentType = stat.ContentType
+
+	srcReader, err := object.NewReader(m.Ctx)
 	if err != nil {
 		return info, err
 	}
@@ -115,12 +104,8 @@ func (m *ManagerT) TransferObjectFromGCSToS3(src, dst v1alpha1.ObjectT) (info v1
 			CacheControl:    srcReader.Attrs.CacheControl,
 			ContentEncoding: srcReader.Attrs.ContentEncoding,
 			ContentType:     srcReader.Attrs.ContentType,
-		})
-	if err != nil {
-		return info, err
-	}
-
-	info, err = m.S3ObjectExist(dst)
+		},
+	)
 
 	return info, err
 }

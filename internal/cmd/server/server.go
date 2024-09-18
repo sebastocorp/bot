@@ -7,7 +7,6 @@ import (
 	"syscall"
 
 	"bot/internal/bot"
-	"bot/internal/global"
 	"bot/internal/logger"
 )
 
@@ -19,7 +18,7 @@ type serverT struct {
 func (d *serverT) flow() {
 	botServer, err := bot.NewBotServer(d.flags.config)
 	if err != nil {
-		logger.Logger.Fatalf("unable to init bot server: %s", err.Error())
+		logger.Logger.Fatalf("unable to config bot server: %s", err.Error())
 	}
 
 	// create channels to manage shutdown actions
@@ -29,15 +28,7 @@ func (d *serverT) flow() {
 	shutdownActionsDone := make(chan bool, 1)
 	go botServer.ShutdownActions(shutdownActionsDone, signals)
 
-	// check host is added in load balancer
-	botServer.CheckOwnHost()
-	logger.Logger.Infof("found '%s' own host in '%s' proxy host resolution", global.Config.APIService.Address, global.Config.HashRingWorker.Proxy)
-
-	// Init bot server
-	botServer.HashRingWorker.InitWorker()
-	botServer.ObjectWorker.InitWorker()
-	botServer.DatabaseWorker.InitWorker()
-	botServer.APIService.InitAPI()
+	botServer.InitServer()
 
 	<-shutdownActionsDone
 }

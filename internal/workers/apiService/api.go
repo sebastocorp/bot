@@ -20,6 +20,11 @@ type APIServiceT struct {
 // API REST Functions
 
 func (a *APIServiceT) getHealth(c *gin.Context) {
+	if !global.ServerState.IsReady() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"status": "OK"})
 }
 
@@ -93,6 +98,7 @@ func (a *APIServiceT) InitAPI() {
 		Handler: router.Handler(),
 	}
 
+	global.ServerState.SetAPIReady()
 	go func() {
 		// service connections
 		if err := a.HttpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {

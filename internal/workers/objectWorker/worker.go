@@ -29,18 +29,7 @@ func (o *ObjectWorkerT) executeTransferRequest(request v1alpha1.TransferRequestT
 	request.To.Info = destInfo
 
 	if !destInfo.Exist {
-		// check if source object already exist
-		sourceInfo, err := o.ObjectManager.GCSObjectExist(request.From)
-		if err != nil {
-			return err
-		}
-
-		if !sourceInfo.Exist {
-			err = fmt.Errorf("object '%s' NOT found in '%s' source bucket", request.From.ObjectPath, request.From.BucketName)
-			return err
-		}
-
-		_, err = o.ObjectManager.TransferObjectFromGCSToS3(request.From, request.To)
+		sourceInfo, err := o.ObjectManager.TransferObjectFromGCSToS3(request.From, request.To)
 		if err != nil {
 			return err
 		}
@@ -139,5 +128,6 @@ func (o *ObjectWorkerT) workerFlow() {
 }
 
 func (o *ObjectWorkerT) InitWorker() {
+	global.ServerState.SetObjectReady()
 	go o.workerFlow()
 }

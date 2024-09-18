@@ -42,28 +42,30 @@ func (d *DatabaseWorkerT) flow() {
 		// CONSUME REQUESTS TO MIGRATE FROM MAP OR WAIT
 		databaseRequestPool := global.DatabaseRequestPool.GetPool()
 
-		requestsList := [][]v1alpha1.DatabaseRequestT{}
-
-		for i := 0; i < d.Config.ParallelRequests; i++ {
-			requestsList = append(requestsList, []v1alpha1.DatabaseRequestT{})
-		}
-
-		requestsListIndex := 0
-		inserts := 0
+		threadList := [][]v1alpha1.DatabaseRequestT{}
+		requestList := []v1alpha1.DatabaseRequestT{}
+		threadIndex := 0
+		requestIndex := 0
 		for _, request := range databaseRequestPool {
-			requestsList[requestsListIndex] = append(requestsList[requestsListIndex], request)
+			requestList = append(requestList, request)
 
-			if inserts++; inserts >= d.Config.InsertsByConnection {
-				inserts = 0
+			if requestIndex++; requestIndex >= d.Config.InsertsByConnection {
+				threadList = append(threadList, requestList)
+				requestIndex = 0
+				requestList = []v1alpha1.DatabaseRequestT{}
 
-				if requestsListIndex++; requestsListIndex >= d.Config.ParallelRequests {
+				if threadIndex++; threadIndex >= d.Config.ParallelRequests {
 					break
 				}
 			}
 		}
 
+		if len(requestList) > 0 {
+			threadList = append(threadList, requestList)
+		}
+
 		wg := sync.WaitGroup{}
-		for _, list := range requestsList {
+		for _, list := range threadList {
 			wg.Add(1)
 
 			go d.processRequest(&wg, list)
@@ -75,5 +77,6 @@ func (d *DatabaseWorkerT) flow() {
 }
 
 func (d *DatabaseWorkerT) InitWorker() {
+	global.ServerState.SetDatabaseReady()
 	go d.flow()
 }

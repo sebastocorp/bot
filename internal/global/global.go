@@ -19,15 +19,15 @@ const (
 	EndpointRequestDatabase = "/request/database"
 )
 
-var Config v1alpha1.BOTConfigT
+var (
+	Config      v1alpha1.BOTConfigT
+	HashRing    *hashring.HashRingT
+	ServerState ServerReadyT
 
-var HashRing *hashring.HashRingT
-
-var ServerInstancesPool = pools.NewServerPool()
-
-var TransferRequestPool = pools.NewTransferRequestPool()
-
-var DatabaseRequestPool = pools.NewDatabaseRequestPool()
+	ServerInstancesPool = pools.NewServerPool()
+	TransferRequestPool = pools.NewTransferRequestPool()
+	DatabaseRequestPool = pools.NewDatabaseRequestPool()
+)
 
 func ParseConfig(filepath string) (err error) {
 	configBytes, err := os.ReadFile(filepath)

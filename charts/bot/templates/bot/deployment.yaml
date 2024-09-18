@@ -86,7 +86,7 @@ spec:
           {{- end }}
 
           env:
-            - name: BOT_SERVER_PROXY_HOST
+            - name: BOT_HR_PROXY
               value: {{ include "bot.fullname" . }}-headless.{{ .Release.Namespace }}.svc.cluster.local
           {{- with .Values.bot.env }}
           {{- toYaml . | nindent 12 }}
@@ -112,12 +112,15 @@ spec:
 
           args:
             - server
+            - --config=/etc/bot/config.yaml
           {{- with .Values.bot.extraArgs }}
           {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- with .Values.bot.volumeMounts }}
           volumeMounts:
+            - name: bot-config
+              mountPath: /etc/bot/
+          {{- with .Values.bot.volumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
@@ -154,9 +157,12 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-
-      {{- with .Values.bot.volumes }}
+      
       volumes:
+        - name: bot-config
+          configMap:
+            name: {{ include "bot.fullname" . }}-config
+      {{- with .Values.bot.volumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
 

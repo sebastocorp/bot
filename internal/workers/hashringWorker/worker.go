@@ -113,11 +113,6 @@ func (h *HashRingWorkerT) getServersPoolChanges(currentServersAddrsList []string
 }
 
 func (h *HashRingWorkerT) flow() {
-	if global.Config.HashRingWorker.Enabled {
-		global.HashRing = hashring.NewHashRing(global.Config.HashRingWorker.VNodes)
-		global.HashRing.AddNodes([]string{global.Config.Name})
-	}
-
 	for {
 		time.Sleep(2 * time.Second)
 
@@ -158,6 +153,18 @@ func (h *HashRingWorkerT) flow() {
 
 func (h *HashRingWorkerT) InitWorker() {
 	if global.Config.HashRingWorker.Enabled {
+		// check host is added in load balancer
+		h.CheckOwnHost()
+		logger.Logger.Infof("found '%s' own host in '%s' proxy host resolution", global.Config.APIService.Address, global.Config.HashRingWorker.Proxy)
+
+		global.HashRing = hashring.NewHashRing(global.Config.HashRingWorker.VNodes)
+
+		global.HashRing.AddNodes([]string{global.Config.Name})
+
+		global.ServerState.SetHashringReady()
+
 		go h.flow()
+	} else {
+		global.ServerState.SetHashringReady()
 	}
 }

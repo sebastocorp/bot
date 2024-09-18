@@ -2,10 +2,7 @@ package bot
 
 import (
 	"context"
-	"fmt"
-	"net"
 	"os"
-	"slices"
 	"time"
 
 	"bot/internal/global"
@@ -36,10 +33,7 @@ func NewBotServer(config string) (botServer *BotT, err error) {
 	}
 
 	if global.Config.APIService.Address == "" {
-		global.Config.APIService.Address, err = getOwnIP()
-		if err != nil {
-			return botServer, err
-		}
+		global.Config.APIService.Address = "0.0.0.0"
 	}
 
 	if global.Config.HashRingWorker.Enabled {
@@ -77,50 +71,19 @@ func NewBotServer(config string) (botServer *BotT, err error) {
 	return botServer, err
 }
 
-func (b *BotT) CheckOwnHost() {
+func (b *BotT) InitServer() {
+	// Init bot server
+	b.HashRingWorker.InitWorker()
+	b.ObjectWorker.InitWorker()
+	b.DatabaseWorker.InitWorker()
+	b.APIService.InitAPI()
 
-	found := false
-	for !found {
-		time.Sleep(6 * time.Second)
-
-		discoveredHosts, err := net.LookupHost(global.Config.HashRingWorker.Proxy)
-		if err != nil {
-			logger.Logger.Errorf("unable to look up in '%s' proxy host: %s", global.Config.HashRingWorker.Proxy, err.Error())
-			continue
-		}
-
-		if slices.Contains(discoveredHosts, global.Config.APIService.Address) {
-			found = true
-			continue
-		}
-
-		logger.Logger.Errorf("unable to find '%s' own host in '%s' proxy host resolution", global.Config.APIService.Address, global.Config.HashRingWorker.Proxy)
-	}
-}
-
-func getOwnIP() (ownAddress string, err error) {
-
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		err = fmt.Errorf("error getting network interfaces: %s", err.Error())
-		return ownAddress, err
+	for !global.ServerState.IsReady() {
+		logger.Logger.Infof("waiting for bot server ready...")
+		time.Sleep(5 * time.Second)
 	}
 
-	localAddressList := []string{}
-	for _, addr := range addrs {
-		if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() && ipNet.IP.To4() != nil {
-			localAddressList = append(localAddressList, ipNet.IP.To4().String())
-		}
-	}
-
-	if len(localAddressList) != 1 {
-		err = fmt.Errorf("too much IPs from network interfaces '%v'", localAddressList)
-		return ownAddress, err
-	}
-
-	ownAddress = localAddressList[0]
-
-	return ownAddress, err
+	logger.Logger.Infof("bot server is ready")
 }
 
 func (b *BotT) ShutdownActions(done chan bool, signal chan os.Signal) {
