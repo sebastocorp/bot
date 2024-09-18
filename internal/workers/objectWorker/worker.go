@@ -196,11 +196,12 @@ func (o *ObjectWorkerT) multiRequestFlow() {
 		}
 
 		wg := sync.WaitGroup{}
-		for _, requests := range threadList {
+		for index, requests := range threadList {
 			wg.Add(1)
 
 			go o.processRequestList(&wg, requests)
 			global.TransferRequestPool.RemoveRequests(requests)
+			logger.Logger.Infof("launch object worker child thread '%d' with '%d' requests", index, len(requests))
 		}
 
 		logger.Logger.Infof("current object worker status {threads: '%d', pool_length: '%d'}", currentThreads, poolLen)
@@ -211,7 +212,7 @@ func (o *ObjectWorkerT) multiRequestFlow() {
 func (o *ObjectWorkerT) InitWorker() {
 	global.ServerState.SetObjectReady()
 	if global.Config.ObjectWorker.RequestsByChildThread > 0 {
-		o.multiRequestFlow()
+		go o.multiRequestFlow()
 	} else {
 		go o.flow()
 	}

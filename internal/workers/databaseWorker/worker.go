@@ -111,11 +111,12 @@ func (d *DatabaseWorkerT) multiRequestFlow() {
 		}
 
 		wg := sync.WaitGroup{}
-		for _, requests := range threadList {
+		for index, requests := range threadList {
 			wg.Add(1)
 
 			go d.processRequestList(&wg, requests)
 			global.DatabaseRequestPool.RemoveRequests(requests)
+			logger.Logger.Infof("launch database worker child thread '%d' with '%d' requests", index, len(requests))
 		}
 
 		logger.Logger.Infof("current database worker status {threads: '%d', pool_length: '%d'}", currentThreads, poolLen)
