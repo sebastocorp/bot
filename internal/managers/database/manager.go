@@ -135,45 +135,22 @@ func (m *ManagerT) InsertObjectsIfNotExist(objectList []v1alpha1.DatabaseRequest
 	defer db.Close()
 
 	for _, object := range objectList {
-		searchQueryClause := fmt.Sprintf("SELECT * FROM %s WHERE bucket_name='%s' AND blob_path='%s';",
-			m.Table, object.BucketName, object.ObjectPath)
-
-		searchRows, err := db.Query(searchQueryClause)
+		var exists bool
+		searchQueryClause := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE bucket_name = ? AND blob_path = ?)", m.Table)
+		err = db.QueryRow(searchQueryClause, object.BucketName, object.ObjectPath).Scan(&exists)
 		if err != nil {
-			logger.Logger.Errorf("unable to search {bucket: '%s', path '%s'} in database: %s", object.BucketName, object.ObjectPath, err.Error())
-			return err
+			logger.Logger.Errorf("unable to check object {bucket: '%s', path: '%s'}: %s", object.BucketName, object.ObjectPath, err.Error())
+			continue
 		}
 
-		//
-		searchResult := QueryObjectResultT{
-			Id:         new(int),
-			BlobPath:   new(string),
-			BucketName: new(string),
-			Md5Sum:     new(string),
-			CreatedAt:  new(string),
-			UpdatedAt:  new(string),
-		}
-
-		occurrences := 0
-		for searchRows.Next() {
-			err = searchRows.Scan(searchResult.Id, searchResult.BlobPath, searchResult.Md5Sum, searchResult.BucketName, searchResult.CreatedAt, searchResult.UpdatedAt)
-			if err != nil {
-				logger.Logger.Errorf("unable to scan {bucket: '%s', path: '%s'} database row: %s", object.BucketName, object.ObjectPath, err.Error())
-			}
-			occurrences++
-		}
-		searchRows.Close()
-
-		if occurrences == 0 {
+		if !exists {
 			// Insert the object into the database.
-			insertQueryClause := fmt.Sprintf("INSERT INTO %s (blob_path,md5sum,bucket_name) VALUES ('%s', '%s', '%s');",
-				m.Table, object.ObjectPath, object.MD5, object.BucketName)
-
-			insertRows, err := db.Query(insertQueryClause)
+			insertQueryClause := fmt.Sprintf("INSERT INTO %s (blob_path,md5sum,bucket_name) VALUES (?, ?, ?)", m.Table)
+			_, err := db.Exec(insertQueryClause, object.ObjectPath, object.MD5, object.BucketName)
 			if err != nil {
-				return err
+				logger.Logger.Errorf("unable to insert object {bucket: '%s', path: '%s'}: %s", object.BucketName, object.ObjectPath, err.Error())
+				continue
 			}
-			insertRows.Close()
 		}
 	}
 
