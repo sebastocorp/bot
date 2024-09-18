@@ -41,3 +41,11 @@ func (pool *ObjectRequestPoolT) RemoveRequest(key string) {
 	delete(pool.requests, key)
 	pool.mu.Unlock()
 }
+
+func (pool *ObjectRequestPoolT) RemoveRequests(requests []v1alpha1.TransferRequestT) {
+	pool.mu.Lock()
+	for _, req := range pool.requests {
+		delete(pool.requests, req.To.ObjectPath)
+	}
+	pool.mu.Unlock()
+}

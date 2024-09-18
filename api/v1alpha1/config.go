@@ -22,8 +22,9 @@ type APIServiceConfigT struct {
 //--------------------------------------------------------------
 
 type ObjectWorkerConfigT struct {
-	ParallelRequests int            `yaml:"parallelRequests"`
-	ObjectStorage    ObjectStorageT `yaml:"objectStorage"`
+	MaxChildTheads        int            `yaml:"maxChildTheads,omitempty"`
+	RequestsByChildThread int            `yaml:"requestsByChildThread,omitempty"`
+	ObjectStorage         ObjectStorageT `yaml:"objectStorage"`
 }
 
 type ObjectStorageT struct {
@@ -48,9 +49,9 @@ type GCST struct {
 //--------------------------------------------------------------
 
 type DatabaseWorkerConfigT struct {
-	ParallelRequests    int       `yaml:"parallelRequests,omitempty"`
-	InsertsByConnection int       `yaml:"insertsByConnection,omitempty"`
-	Database            DatabaseT `yaml:"database"`
+	MaxChildTheads        int       `yaml:"maxChildTheads,omitempty"`
+	RequestsByChildThread int       `yaml:"requestsByChildThread,omitempty"`
+	Database              DatabaseT `yaml:"database"`
 }
 
 type DatabaseT struct {

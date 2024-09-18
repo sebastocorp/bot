@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -32,26 +33,67 @@ func NewBotServer(config string) (botServer *BotT, err error) {
 		return botServer, err
 	}
 
+	//--------------------------------------------------------------
+	// CHECK API CONFIG
+	//--------------------------------------------------------------
+
 	if global.Config.APIService.Address == "" {
 		global.Config.APIService.Address = "0.0.0.0"
 	}
+
+	//--------------------------------------------------------------
+	// CHECK OBJECT CONFIG
+	//--------------------------------------------------------------
+
+	if global.Config.ObjectWorker.MaxChildTheads <= 0 {
+		global.Config.ObjectWorker.MaxChildTheads = 1
+	}
+
+	//--------------------------------------------------------------
+	// CHECK DATABASE CONFIG
+	//--------------------------------------------------------------
+	if global.Config.DatabaseWorker.Database.Host == "" {
+		err = fmt.Errorf("database host config is empty")
+		return botServer, err
+	}
+
+	if global.Config.DatabaseWorker.Database.Port == "" {
+		err = fmt.Errorf("database port config is empty")
+		return botServer, err
+	}
+
+	if global.Config.DatabaseWorker.Database.Database == "" {
+		err = fmt.Errorf("database name config is empty")
+		return botServer, err
+	}
+
+	if global.Config.DatabaseWorker.Database.Table == "" {
+		err = fmt.Errorf("database table config is empty")
+		return botServer, err
+	}
+
+	if global.Config.DatabaseWorker.Database.Username == "" {
+		err = fmt.Errorf("database user config is empty")
+		return botServer, err
+	}
+
+	if global.Config.DatabaseWorker.Database.Password == "" {
+		err = fmt.Errorf("database password config is empty")
+		return botServer, err
+	}
+
+	if global.Config.DatabaseWorker.MaxChildTheads <= 0 {
+		global.Config.DatabaseWorker.MaxChildTheads = 1
+	}
+
+	//--------------------------------------------------------------
+	// CHECK HASHRING CONFIG
+	//--------------------------------------------------------------
 
 	if global.Config.HashRingWorker.Enabled {
 		if global.Config.HashRingWorker.VNodes <= 0 {
 			global.Config.HashRingWorker.VNodes = 1
 		}
-	}
-
-	if global.Config.ObjectWorker.ParallelRequests <= 0 {
-		global.Config.ObjectWorker.ParallelRequests = 1
-	}
-
-	if global.Config.DatabaseWorker.ParallelRequests <= 0 {
-		global.Config.DatabaseWorker.ParallelRequests = 1
-	}
-
-	if global.Config.DatabaseWorker.InsertsByConnection <= 0 {
-		global.Config.DatabaseWorker.InsertsByConnection = 1
 	}
 
 	ctx := context.Background()

@@ -31,6 +31,18 @@ type DatabaseRequestT struct {
 	MD5        string `json:"md5"`
 }
 
+func (t *TransferRequestT) String() string {
+	return fmt.Sprintf("{from: {bucket: '%s', object: '%s'} to: {bucket: '%s', object: '%s'}}", t.From.BucketName, t.From.ObjectPath, t.To.BucketName, t.To.ObjectPath)
+}
+
+func (d *DatabaseRequestT) String() string {
+	return fmt.Sprintf("{bucket: '%s', object: '%s'}", d.BucketName, d.ObjectPath)
+}
+
+func (s *ServerT) String() string {
+	return fmt.Sprintf("{name: '%s', adress: '%s'}", s.Name, s.Address)
+}
+
 func (o *ObjectT) String() string {
 	return fmt.Sprintf("{bucket: '%s', object: '%s'}", o.BucketName, o.ObjectPath)
 }

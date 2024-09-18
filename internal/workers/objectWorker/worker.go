@@ -73,61 +73,146 @@ func (o *ObjectWorkerT) moveTransferRequest(serverName string, request v1alpha1.
 	return err
 }
 
-func (o *ObjectWorkerT) processTransferRequest(wg *sync.WaitGroup, itemPath string, request v1alpha1.TransferRequestT) {
+func (o *ObjectWorkerT) processTransferRequest(wg *sync.WaitGroup, request v1alpha1.TransferRequestT) {
 	defer wg.Done()
 
-	logger.Logger.Infof("process '%s' transfer request '%v'", itemPath, request)
+	logger.Logger.Infof("process object transfer request '%s'", request.String())
 
 	if global.Config.HashRingWorker.Enabled {
-		serverName := global.HashRing.GetNode(itemPath)
+		serverName := global.HashRing.GetNode(request.To.ObjectPath)
 
 		if serverName != global.Config.Name {
 			// send transfer request to owner
-			logger.Logger.Infof("moving '%s' transfer request to '%s'", itemPath, serverName)
+			logger.Logger.Infof("moving object transfer request '%s' to '%s'", request.String(), serverName)
 
 			err := o.moveTransferRequest(serverName, request)
 			if err == nil {
 				return
 			}
 
-			logger.Logger.Errorf("unable to move '%s' transfer request to '%s': %s", itemPath, serverName, err.Error())
+			logger.Logger.Errorf("unable to move object transfer request '%s' to '%s': %s", request.String(), serverName, err.Error())
 		}
 	}
 
-	logger.Logger.Infof("execute '%s' transfer request", itemPath)
 	err := o.executeTransferRequest(request)
 	if err != nil {
-		logger.Logger.Errorf("unable to execute '%s' transfer request: %s", itemPath, err.Error())
+		logger.Logger.Errorf("unable to process object transfer request '%s': %s", request.String(), err.Error())
 	} else {
-		logger.Logger.Infof("success executing '%s' transfer request", itemPath)
+		logger.Logger.Infof("success in process object transfer request '%s'", request.String())
 	}
 }
 
-func (o *ObjectWorkerT) workerFlow() {
+func (o *ObjectWorkerT) processRequestList(wg *sync.WaitGroup, requests []v1alpha1.TransferRequestT) {
+	defer wg.Done()
+
+	for _, request := range requests {
+		logger.Logger.Infof("process object transfer request '%s'", request.String())
+
+		if global.Config.HashRingWorker.Enabled {
+			serverName := global.HashRing.GetNode(request.To.ObjectPath)
+
+			if serverName != global.Config.Name {
+				// send transfer request to owner
+				logger.Logger.Infof("moving object transfer request '%s' to '%s'", request.String(), serverName)
+
+				err := o.moveTransferRequest(serverName, request)
+				if err == nil {
+					return
+				}
+
+				logger.Logger.Errorf("unable to move object transfer request '%s' to '%s': %s", request.String(), serverName, err.Error())
+			}
+		}
+
+		err := o.executeTransferRequest(request)
+		if err != nil {
+			logger.Logger.Errorf("unable to process object transfer request '%s': %s", request.String(), err.Error())
+		} else {
+			logger.Logger.Infof("success in process object transfer request '%s'", request.String())
+		}
+	}
+}
+
+func (o *ObjectWorkerT) flow() {
 	for {
 		// CONSUME OBJECT TO MIGRATE FROM MAP OR WAIT
-		transferRequestMap := global.TransferRequestPool.GetPool()
+		transferRequestPool := global.TransferRequestPool.GetPool()
+		poolLen := len(transferRequestPool)
+		if poolLen == 0 {
+			time.Sleep(2 * time.Second)
+			continue
+		}
 
 		wg := sync.WaitGroup{}
-		count := 0
-		for itemPath, request := range transferRequestMap {
+		currentThreads := 0
+		for itemPath, request := range transferRequestPool {
 			wg.Add(1)
 
-			go o.processTransferRequest(&wg, itemPath, request)
-
-			// remove request from pool
+			go o.processTransferRequest(&wg, request)
 			global.TransferRequestPool.RemoveRequest(itemPath)
 
-			if count++; count >= global.Config.ObjectWorker.ParallelRequests {
+			if currentThreads++; currentThreads >= global.Config.ObjectWorker.MaxChildTheads {
 				break
 			}
 		}
 
+		logger.Logger.Infof("current object worker status {threads: '%d', pool_length: '%d'}", currentThreads, poolLen)
+		wg.Wait()
+	}
+}
+
+func (o *ObjectWorkerT) multiRequestFlow() {
+	for {
+		// CONSUME OBJECT TO MIGRATE FROM MAP OR WAIT
+		transferRequestPool := global.TransferRequestPool.GetPool()
+
+		poolLen := len(transferRequestPool)
+		if poolLen == 0 {
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		threadList := [][]v1alpha1.TransferRequestT{}
+		requestList := []v1alpha1.TransferRequestT{}
+		currentThreads := 0
+		requestIndex := 0
+		for _, request := range transferRequestPool {
+			requestList = append(requestList, request)
+
+			if requestIndex++; requestIndex >= global.Config.ObjectWorker.RequestsByChildThread {
+				threadList = append(threadList, requestList)
+				requestIndex = 0
+				requestList = []v1alpha1.TransferRequestT{}
+
+				if currentThreads++; currentThreads >= global.Config.ObjectWorker.MaxChildTheads {
+					break
+				}
+			}
+		}
+
+		if len(requestList) > 0 {
+			threadList = append(threadList, requestList)
+			currentThreads++
+		}
+
+		wg := sync.WaitGroup{}
+		for _, requests := range threadList {
+			wg.Add(1)
+
+			go o.processRequestList(&wg, requests)
+			global.TransferRequestPool.RemoveRequests(requests)
+		}
+
+		logger.Logger.Infof("current object worker status {threads: '%d', pool_length: '%d'}", currentThreads, poolLen)
 		wg.Wait()
 	}
 }
 
 func (o *ObjectWorkerT) InitWorker() {
 	global.ServerState.SetObjectReady()
-	go o.workerFlow()
+	if global.Config.ObjectWorker.RequestsByChildThread > 0 {
+		o.multiRequestFlow()
+	} else {
+		go o.flow()
+	}
 }

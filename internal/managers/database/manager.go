@@ -2,6 +2,7 @@ package database
 
 import (
 	"bot/api/v1alpha1"
+	"bot/internal/global"
 	"bot/internal/logger"
 	"context"
 	"database/sql"
@@ -14,8 +15,6 @@ import (
 type ManagerT struct {
 	Ctx       context.Context
 	Connector driver.Connector
-	// MySQL MySQLT
-	Table string
 }
 
 // type MySQLT struct {
@@ -82,7 +81,10 @@ func (m *ManagerT) GetObject(object v1alpha1.ObjectT) (result QueryObjectResultT
 	defer db.Close()
 
 	queryClause := fmt.Sprintf("SELECT * FROM %s WHERE bucket_name='%s' AND blob_path='%s';",
-		m.Table, object.BucketName, object.ObjectPath)
+		global.Config.DatabaseWorker.Database.Table,
+		object.BucketName,
+		object.ObjectPath,
+	)
 
 	rows, err := db.Query(queryClause)
 	if err != nil {
@@ -109,7 +111,7 @@ func (m *ManagerT) GetObject(object v1alpha1.ObjectT) (result QueryObjectResultT
 }
 
 // InsertObject TODO
-func (m *ManagerT) InsertObject(object ObjectT) (err error) {
+func (m *ManagerT) InsertObject(object v1alpha1.DatabaseRequestT) (err error) {
 
 	// Get a database handle.
 	db := sql.OpenDB(m.Connector)
@@ -117,10 +119,10 @@ func (m *ManagerT) InsertObject(object ObjectT) (err error) {
 
 	// Insert the object into the database.
 	queryClause := fmt.Sprintf("INSERT INTO %s (blob_path,md5sum,bucket_name) VALUES ('%s', '%s', '%s');",
-		m.Table, object.Path, object.MD5, object.Bucket)
-
+		global.Config.DatabaseWorker.Database.Table, object.ObjectPath, object.MD5, object.BucketName)
 	rows, err := db.Query(queryClause)
 	if err != nil {
+		logger.Logger.Errorf("insert fail with '%s' query", queryClause)
 		return err
 	}
 	rows.Close()
@@ -128,31 +130,65 @@ func (m *ManagerT) InsertObject(object ObjectT) (err error) {
 	return err
 }
 
-func (m *ManagerT) InsertObjectsIfNotExist(objectList []v1alpha1.DatabaseRequestT) (err error) {
+func (m *ManagerT) InsertObjectIfNotExist(object v1alpha1.DatabaseRequestT) (err error) {
 
 	// Get a database handle.
 	db := sql.OpenDB(m.Connector)
 	defer db.Close()
 
-	for _, object := range objectList {
-		var exists bool
-		searchQueryClause := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE bucket_name = ? AND blob_path = ?)", m.Table)
-		err = db.QueryRow(searchQueryClause, object.BucketName, object.ObjectPath).Scan(&exists)
-		if err != nil {
-			logger.Logger.Errorf("unable to check object {bucket: '%s', path: '%s'}: %s", object.BucketName, object.ObjectPath, err.Error())
-			continue
-		}
+	var exists bool
+	searchQueryClause := fmt.Sprintf("SELECT EXISTS ( SELECT 1 FROM %s WHERE bucket_name = '%s' AND blob_path = '%s');",
+		global.Config.DatabaseWorker.Database.Table,
+		object.BucketName,
+		object.ObjectPath,
+	)
+	err = db.QueryRow(searchQueryClause).Scan(&exists)
+	if err != nil {
+		logger.Logger.Errorf("unable to check object {bucket: '%s', path: '%s'}: %s", object.BucketName, object.ObjectPath, err.Error())
+		return err
+	}
 
-		if !exists {
-			// Insert the object into the database.
-			insertQueryClause := fmt.Sprintf("INSERT INTO %s (blob_path,md5sum,bucket_name) VALUES (?, ?, ?)", m.Table)
-			_, err := db.Exec(insertQueryClause, object.ObjectPath, object.MD5, object.BucketName)
-			if err != nil {
-				logger.Logger.Errorf("unable to insert object {bucket: '%s', path: '%s'}: %s", object.BucketName, object.ObjectPath, err.Error())
-				continue
-			}
+	if !exists {
+		// Insert the object into the database.
+		insertQueryClause := fmt.Sprintf("INSERT INTO %s (blob_path,md5sum,bucket_name) VALUES ('%s', '%s', '%s');",
+			global.Config.DatabaseWorker.Database.Table,
+			object.ObjectPath,
+			object.MD5,
+			object.BucketName,
+		)
+		_, err = db.Exec(insertQueryClause)
+		if err != nil {
+			logger.Logger.Errorf("unable to insert object {bucket: '%s', path: '%s'}: %s", object.BucketName, object.ObjectPath, err.Error())
 		}
 	}
+
+	return err
+}
+
+func (m *ManagerT) InsertObjectListIfNotExist(objectList []v1alpha1.DatabaseRequestT) (err error) {
+	objectListLen := len(objectList)
+
+	insertQueryClause := fmt.Sprintf("INSERT IGNORE INTO %s (blob_path,md5sum,bucket_name) VALUES ",
+		global.Config.DatabaseWorker.Database.Table,
+	)
+	for index, object := range objectList {
+		// Insert the object into the database.
+		insertQueryClause += fmt.Sprintf("('%s', '%s', '%s')",
+			object.ObjectPath,
+			object.MD5,
+			object.BucketName,
+		)
+		if index < objectListLen-1 {
+			insertQueryClause += ", "
+		}
+	}
+	insertQueryClause += ";"
+
+	// Get a database handle.
+	db := sql.OpenDB(m.Connector)
+	defer db.Close()
+
+	_, err = db.Exec(insertQueryClause)
 
 	return err
 }

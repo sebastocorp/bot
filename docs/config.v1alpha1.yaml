@@ -3,7 +3,8 @@ apiService:
   address: "0.0.0.0"
   port: "8080"
 objectWorker:
-  parallelRequests: 1
+  maxChildTheads: 1
+  requestsByChildThread: 1
   objectStorage:
     s3:
       endpoint: "s3.example.com"
@@ -14,8 +15,8 @@ objectWorker:
     gcs:
       credentialsFile: "creds.json"
 databaseWorker:
-  parallelRequests: 1
-  insertsByConnection: 1
+  maxChildTheads: 1
+  requestsByChildThread: 1
   database:
     host: "127.0.0.1"
     port: "3360"
