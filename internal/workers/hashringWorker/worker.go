@@ -18,6 +18,24 @@ import (
 type HashRingWorkerT struct {
 }
 
+func (h *HashRingWorkerT) InitWorker() {
+	if global.Config.HashRingWorker.Enabled {
+		// check host is added in load balancer
+		h.CheckOwnHost()
+		logger.Logger.Infof("found '%s' own host in '%s' proxy host resolution", global.Config.APIService.Address, global.Config.HashRingWorker.Proxy)
+
+		global.HashRing = hashring.NewHashRing(global.Config.HashRingWorker.VNodes)
+
+		global.HashRing.AddNodes([]string{global.Config.Name})
+
+		global.ServerState.SetHashringReady()
+
+		go h.flow()
+	}
+
+	global.ServerState.SetHashringReady()
+}
+
 func (h *HashRingWorkerT) discoverServerAddresses() (instancesAddrs []string, err error) {
 	discoveredHosts, err := net.LookupHost(global.Config.HashRingWorker.Proxy)
 	if err != nil {
@@ -148,23 +166,5 @@ func (h *HashRingWorkerT) flow() {
 			global.HashRing.RemoveNodes(removed)
 			global.HashRing.AddNodes(added)
 		}
-	}
-}
-
-func (h *HashRingWorkerT) InitWorker() {
-	if global.Config.HashRingWorker.Enabled {
-		// check host is added in load balancer
-		h.CheckOwnHost()
-		logger.Logger.Infof("found '%s' own host in '%s' proxy host resolution", global.Config.APIService.Address, global.Config.HashRingWorker.Proxy)
-
-		global.HashRing = hashring.NewHashRing(global.Config.HashRingWorker.VNodes)
-
-		global.HashRing.AddNodes([]string{global.Config.Name})
-
-		global.ServerState.SetHashringReady()
-
-		go h.flow()
-	} else {
-		global.ServerState.SetHashringReady()
 	}
 }

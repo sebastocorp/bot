@@ -19,6 +19,30 @@ type APIServiceT struct {
 
 // API REST Functions
 
+func (a *APIServiceT) InitAPI() {
+	router := gin.Default()
+	router.GET(global.EndpointHealth, a.getHealth)
+	router.GET(global.EndpointInfo, a.getInfo)
+	router.POST(global.EndpointRequestObject, a.postTransferRequest)
+	router.POST(global.EndpointRequestDatabase, a.postDatabaseRequest)
+
+	addr := fmt.Sprintf("%s:%s", global.Config.APIService.Address, global.Config.APIService.Port)
+
+	a.Ctx = context.Background()
+	a.HttpServer = &http.Server{
+		Addr:    addr,
+		Handler: router.Handler(),
+	}
+
+	global.ServerState.SetAPIReady()
+	go func() {
+		// service connections
+		if err := a.HttpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Logger.Fatalf("error closing '%s' API: %s\n", global.Config.Name, err.Error())
+		}
+	}()
+}
+
 func (a *APIServiceT) getHealth(c *gin.Context) {
 	if !global.ServerState.IsReady() {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
@@ -81,28 +105,4 @@ func (a *APIServiceT) postDatabaseRequest(c *gin.Context) {
 	logger.Logger.Infof("database request '%v' added in pool", request)
 
 	c.JSON(http.StatusOK, gin.H{"message": "OK"})
-}
-
-func (a *APIServiceT) InitAPI() {
-	router := gin.Default()
-	router.GET(global.EndpointHealth, a.getHealth)
-	router.GET(global.EndpointInfo, a.getInfo)
-	router.POST(global.EndpointRequestObject, a.postTransferRequest)
-	router.POST(global.EndpointRequestDatabase, a.postDatabaseRequest)
-
-	addr := fmt.Sprintf("%s:%s", global.Config.APIService.Address, global.Config.APIService.Port)
-
-	a.Ctx = context.Background()
-	a.HttpServer = &http.Server{
-		Addr:    addr,
-		Handler: router.Handler(),
-	}
-
-	global.ServerState.SetAPIReady()
-	go func() {
-		// service connections
-		if err := a.HttpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Logger.Fatalf("error closing '%s' API: %s\n", global.Config.Name, err.Error())
-		}
-	}()
 }

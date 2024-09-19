@@ -46,7 +46,17 @@ func NewBotServer(config string) (botServer *BotT, err error) {
 	//--------------------------------------------------------------
 
 	if global.Config.ObjectWorker.MaxChildTheads <= 0 {
-		global.Config.ObjectWorker.MaxChildTheads = 1
+		err = fmt.Errorf("config option objectWorker.maxChildTheads with value '%d', must be a number > 0",
+			global.Config.ObjectWorker.MaxChildTheads,
+		)
+		return botServer, err
+	}
+
+	if global.Config.ObjectWorker.RequestsByChildThread <= 0 {
+		err = fmt.Errorf("config option objectWorker.requestsByChildThread with value '%d', must be a number > 0",
+			global.Config.ObjectWorker.MaxChildTheads,
+		)
+		return botServer, err
 	}
 
 	//--------------------------------------------------------------
@@ -83,7 +93,17 @@ func NewBotServer(config string) (botServer *BotT, err error) {
 	}
 
 	if global.Config.DatabaseWorker.MaxChildTheads <= 0 {
-		global.Config.DatabaseWorker.MaxChildTheads = 1
+		err = fmt.Errorf("config option databaseWorker.maxChildTheads with value '%d', must be a number > 0",
+			global.Config.DatabaseWorker.MaxChildTheads,
+		)
+		return botServer, err
+	}
+
+	if global.Config.DatabaseWorker.RequestsByChildThread <= 0 {
+		err = fmt.Errorf("config option databaseWorker.requestsByChildThread with value '%d', must be a number > 0",
+			global.Config.DatabaseWorker.MaxChildTheads,
+		)
+		return botServer, err
 	}
 
 	//--------------------------------------------------------------

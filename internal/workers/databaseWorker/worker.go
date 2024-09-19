@@ -18,65 +18,12 @@ type DatabaseWorkerT struct {
 	DatabaseManager database.ManagerT
 }
 
-func (d *DatabaseWorkerT) processRequest(wg *sync.WaitGroup, request v1alpha1.DatabaseRequestT) {
-	defer wg.Done()
-
-	logger.Logger.Infof("process database request '%s'", request.String())
-	err := d.DatabaseManager.InsertObjectIfNotExist(request)
-	if err != nil {
-		logger.Logger.Errorf("unable to process database request '%s': %s", request.String(), err.Error())
-	} else {
-		logger.Logger.Infof("success in process database request '%s'", request.String())
-	}
-}
-
-func (d *DatabaseWorkerT) processRequestList(wg *sync.WaitGroup, requests []v1alpha1.DatabaseRequestT) {
-	defer wg.Done()
-	reqsStr := ""
-	for _, req := range requests {
-		reqsStr += req.String()
-	}
-
-	idStr := fmt.Sprintf("%x", md5.Sum([]byte(reqsStr)))
-
-	logger.Logger.Infof("process database request list with id '%s', requests '%s'", idStr, reqsStr)
-	err := d.DatabaseManager.InsertObjectListIfNotExist(requests)
-	if err != nil {
-		logger.Logger.Errorf("unable to process database request list with id '%s': %s", idStr, err.Error())
-	} else {
-		logger.Logger.Infof("success in process database request list with id '%s'", idStr)
-	}
+func (d *DatabaseWorkerT) InitWorker() {
+	global.ServerState.SetDatabaseReady()
+	go d.flow()
 }
 
 func (d *DatabaseWorkerT) flow() {
-	for {
-		// CONSUME REQUESTS TO MIGRATE FROM MAP OR WAIT
-		databaseRequestPool := global.DatabaseRequestPool.GetPool()
-
-		poolLen := len(databaseRequestPool)
-		if poolLen == 0 {
-			time.Sleep(2 * time.Second)
-		}
-
-		wg := sync.WaitGroup{}
-		currentThreads := 0
-		for dbKey, request := range databaseRequestPool {
-			wg.Add(1)
-
-			go d.processRequest(&wg, request)
-			global.DatabaseRequestPool.RemoveRequest(dbKey)
-
-			if currentThreads++; currentThreads >= global.Config.DatabaseWorker.MaxChildTheads {
-				break
-			}
-		}
-
-		logger.Logger.Infof("current database worker status {threads: '%d', pool_length: '%d'}", currentThreads, poolLen)
-		wg.Wait()
-	}
-}
-
-func (d *DatabaseWorkerT) multiRequestFlow() {
 	for {
 		// CONSUME REQUESTS TO MIGRATE FROM MAP OR WAIT
 		databaseRequestPool := global.DatabaseRequestPool.GetPool()
@@ -124,11 +71,20 @@ func (d *DatabaseWorkerT) multiRequestFlow() {
 	}
 }
 
-func (d *DatabaseWorkerT) InitWorker() {
-	global.ServerState.SetDatabaseReady()
-	if global.Config.DatabaseWorker.RequestsByChildThread > 0 {
-		go d.multiRequestFlow()
+func (d *DatabaseWorkerT) processRequestList(wg *sync.WaitGroup, requests []v1alpha1.DatabaseRequestT) {
+	defer wg.Done()
+	reqsStr := ""
+	for _, req := range requests {
+		reqsStr += req.String()
+	}
+
+	idStr := fmt.Sprintf("%x", md5.Sum([]byte(reqsStr)))
+
+	logger.Logger.Infof("process database request list with id '%s', requests '%s'", idStr, reqsStr)
+	err := d.DatabaseManager.InsertObjectListIfNotExist(requests)
+	if err != nil {
+		logger.Logger.Errorf("unable to process database request list with id '%s': %s", idStr, err.Error())
 	} else {
-		go d.flow()
+		logger.Logger.Infof("success in process database request list with id '%s'", idStr)
 	}
 }
