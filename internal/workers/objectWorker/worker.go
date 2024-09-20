@@ -28,6 +28,7 @@ func (o *ObjectWorkerT) flow() {
 
 		poolLen := len(transferRequestPool)
 		if poolLen == 0 {
+			logger.Logger.Infof("object worker status {empty pool}")
 			time.Sleep(2 * time.Second)
 			continue
 		}

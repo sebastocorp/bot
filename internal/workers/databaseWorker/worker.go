@@ -30,6 +30,7 @@ func (d *DatabaseWorkerT) flow() {
 
 		poolLen := len(databaseRequestPool)
 		if poolLen == 0 {
+			logger.Logger.Infof("database worker status {empty pool}")
 			time.Sleep(2 * time.Second)
 			continue
 		}
