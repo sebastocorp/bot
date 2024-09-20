@@ -38,8 +38,11 @@ func (d *DatabaseWorkerT) flow() {
 		requestList := []v1alpha1.DatabaseRequestT{}
 		currentThreads := 0
 		requestIndex := 0
-		for _, request := range databaseRequestPool {
+		requestsCount := 0
+		for key, request := range databaseRequestPool {
 			requestList = append(requestList, request)
+			global.DatabaseRequestPool.RemoveRequest(key)
+			requestsCount++
 
 			if requestIndex++; requestIndex >= global.Config.DatabaseWorker.RequestsByChildThread {
 				threadList = append(threadList, requestList)
@@ -58,15 +61,13 @@ func (d *DatabaseWorkerT) flow() {
 		}
 
 		wg := sync.WaitGroup{}
-		for index, requests := range threadList {
+		for _, requests := range threadList {
 			wg.Add(1)
 
 			go d.processRequestList(&wg, requests)
-			global.DatabaseRequestPool.RemoveRequests(requests)
-			logger.Logger.Infof("launch database worker child thread '%d' with '%d' requests", index, len(requests))
 		}
 
-		logger.Logger.Infof("current database worker status {threads: '%d', pool_length: '%d'}", currentThreads, poolLen)
+		logger.Logger.Infof("database worker status {requests: %d, threads: '%d'}", requestsCount, currentThreads)
 		wg.Wait()
 	}
 }

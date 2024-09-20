@@ -36,8 +36,11 @@ func (o *ObjectWorkerT) flow() {
 		requestList := []v1alpha1.TransferRequestT{}
 		currentThreads := 0
 		requestIndex := 0
-		for _, request := range transferRequestPool {
+		requestsCount := 0
+		for key, request := range transferRequestPool {
 			requestList = append(requestList, request)
+			global.TransferRequestPool.RemoveRequest(key)
+			requestsCount++
 
 			if requestIndex++; requestIndex >= global.Config.ObjectWorker.RequestsByChildThread {
 				threadList = append(threadList, requestList)
@@ -56,15 +59,13 @@ func (o *ObjectWorkerT) flow() {
 		}
 
 		wg := sync.WaitGroup{}
-		for index, requests := range threadList {
+		for _, requests := range threadList {
 			wg.Add(1)
 
 			go o.processRequestList(&wg, requests)
-			global.TransferRequestPool.RemoveRequests(requests)
-			logger.Logger.Infof("launch object worker child thread '%d' with '%d' requests", index, len(requests))
 		}
 
-		logger.Logger.Infof("current object worker status {threads: '%d', pool_length: '%d'}", currentThreads, poolLen)
+		logger.Logger.Infof("object worker status {requests: '%d', threads: '%d'}", requestsCount, currentThreads)
 		wg.Wait()
 	}
 }
