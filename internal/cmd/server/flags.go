@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bot/internal/logger"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -20,31 +19,17 @@ const (
 )
 
 type serverFlagsT struct {
-	logLevel string
-	config   string
+	config string
 }
 
-func (d *serverT) getFlags(cmd *cobra.Command) (err error) {
-
-	// Get root command flags
-	d.flags.logLevel, err = cmd.Flags().GetString(logLevelFlagName)
-	if err != nil {
-		log.Fatalf(logLevelFlagErrMsg, err.Error())
-	}
-
-	level, err := logger.GetLevel(d.flags.logLevel)
-	if err != nil {
-		log.Fatalf(logLevelFlagErrMsg, err.Error())
-	}
-
-	logger.InitLogger(d.context, level)
+func getFlags(cmd *cobra.Command) (flags serverFlagsT, err error) {
 
 	// Get server command flags
 
-	d.flags.config, err = cmd.Flags().GetString(configFlagName)
+	flags.config, err = cmd.Flags().GetString(configFlagName)
 	if err != nil {
 		log.Fatalf(configFlagErrMsg, err.Error())
 	}
 
-	return err
+	return flags, err
 }

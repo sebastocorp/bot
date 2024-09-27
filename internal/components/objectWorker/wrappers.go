@@ -1,25 +1,26 @@
 package objectWorker
 
 import (
-	"bot/api/v1alpha1"
-	"bot/internal/global"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
+
+	"bot/api/v1alpha1"
+	"bot/internal/global"
 )
 
-func (o *ObjectWorkerT) executeTransferRequest(request v1alpha1.TransferRequestT) (err error) {
+func (ow *ObjectWorkerT) executeTransferRequest(request v1alpha1.TransferRequestT) (err error) {
 	// check if destination object already exist
-	destInfo, err := o.ObjectManager.S3ObjectExist(request.To)
+	destInfo, err := ow.ObjectManager.S3ObjectExist(request.To)
 	if err != nil {
 		return err
 	}
 	request.To.Info = destInfo
 
 	if !destInfo.Exist {
-		sourceInfo, err := o.ObjectManager.TransferObjectFromGCSToS3(request.From, request.To)
+		sourceInfo, err := ow.ObjectManager.TransferObjectFromGCSToS3(request.From, request.To)
 		if err != nil {
 			return err
 		}
@@ -27,7 +28,7 @@ func (o *ObjectWorkerT) executeTransferRequest(request v1alpha1.TransferRequestT
 		request.To.Info = sourceInfo
 	}
 
-	global.DatabaseRequestPool.AddRequest(v1alpha1.DatabaseRequestT{
+	ow.databaseRequestPool.AddRequest(v1alpha1.DatabaseRequestT{
 		BucketName: request.To.BucketName,
 		ObjectPath: request.To.ObjectPath,
 		MD5:        request.To.Info.MD5,
@@ -36,8 +37,8 @@ func (o *ObjectWorkerT) executeTransferRequest(request v1alpha1.TransferRequestT
 	return err
 }
 
-func (o *ObjectWorkerT) moveTransferRequest(serverName string, request v1alpha1.TransferRequestT) (err error) {
-	pool := global.ServerInstancesPool.GetPool()
+func (ow *ObjectWorkerT) moveTransferRequest(serverName string, request v1alpha1.TransferRequestT) (err error) {
+	pool := ow.serverInstancePool.GetPool()
 	serverToSend := v1alpha1.ServerT{}
 	for _, server := range pool {
 		if server.Name == serverName {
@@ -52,8 +53,8 @@ func (o *ObjectWorkerT) moveTransferRequest(serverName string, request v1alpha1.
 	}
 
 	http.DefaultClient.Timeout = 100 * time.Millisecond
-	// requestURL := fmt.Sprintf("http://%s:%s/transfer", serverToSend.Address, o.Config.Port)
-	requestURL := fmt.Sprintf("http://%s:%s/transfer", serverToSend.Address, global.Config.APIService.Port)
+	// TODO: add api port configuration to use here
+	requestURL := fmt.Sprintf("http://%s:%s/transfer", serverToSend.Address, "8080")
 	respBody, err := http.Post(requestURL, global.HeaderContentTypeAppJson, bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		return err

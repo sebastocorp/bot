@@ -13,8 +13,9 @@ type BOTConfigT struct {
 //--------------------------------------------------------------
 
 type APIServiceConfigT struct {
-	Address string `yaml:"address"`
-	Port    string `yaml:"port"`
+	LogLevel string `yaml:"loglevel"`
+	Address  string `yaml:"address"`
+	Port     string `yaml:"port"`
 }
 
 //--------------------------------------------------------------
@@ -22,6 +23,7 @@ type APIServiceConfigT struct {
 //--------------------------------------------------------------
 
 type ObjectWorkerConfigT struct {
+	LogLevel              string         `yaml:"loglevel"`
 	MaxChildTheads        int            `yaml:"maxChildTheads,omitempty"`
 	RequestsByChildThread int            `yaml:"requestsByChildThread,omitempty"`
 	ObjectStorage         ObjectStorageT `yaml:"objectStorage"`
@@ -49,6 +51,7 @@ type GCST struct {
 //--------------------------------------------------------------
 
 type DatabaseWorkerConfigT struct {
+	LogLevel              string    `yaml:"loglevel"`
 	MaxChildTheads        int       `yaml:"maxChildTheads,omitempty"`
 	RequestsByChildThread int       `yaml:"requestsByChildThread,omitempty"`
 	Database              DatabaseT `yaml:"database"`
@@ -68,7 +71,8 @@ type DatabaseT struct {
 //--------------------------------------------------------------
 
 type HashRingWorkerConfigT struct {
-	Enabled bool   `yaml:"enabled"`
-	Proxy   string `yaml:"proxy"`
-	VNodes  int    `yaml:"vnodes"`
+	Enabled  bool   `yaml:"enabled"`
+	LogLevel string `yaml:"loglevel"`
+	Proxy    string `yaml:"proxy"`
+	VNodes   int    `yaml:"vnodes"`
 }
