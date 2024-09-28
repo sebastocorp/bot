@@ -16,36 +16,30 @@ import (
 	"bot/internal/pools"
 )
 
-type HashRingWorkerT struct {
-	config v1alpha1.HashRingWorkerConfigT
+type HashringWorkerT struct {
+	config *v1alpha1.BOTConfigT
 	log    logger.LoggerT
 
 	hashring           *hashring.HashRingT
 	serverInstancePool *pools.ServerInstancesPoolT
 }
 
-func NewHashringWorker(config v1alpha1.HashRingWorkerConfigT) (hw *HashRingWorkerT) {
-	hw = &HashRingWorkerT{
+func NewHashringWorker(config *v1alpha1.BOTConfigT) (hw *HashringWorkerT) {
+	hw = &HashringWorkerT{
 		config: config,
-	}
-
-	if hw.config.Enabled {
-		if hw.config.VNodes <= 0 {
-			hw.config.VNodes = 1
-		}
 	}
 
 	return hw
 }
 
-func (hw *HashRingWorkerT) InitWorker() {
-	if hw.config.Enabled {
+func (hw *HashringWorkerT) Run() {
+	if hw.config.HashRingWorker.Enabled {
 		// check host is added in load balancer
 		hw.CheckOwnHost()
 		// TODO: add config to get api address
-		// hw.log.Info("found '%s' own host in '%s' proxy host resolution", "global.Config.APIService.Address", hw.config.Proxy)
+		// hw.log.Info("found '%s' own host in '%s' proxy host resolution", "global.Config.APIService.Address", hw.config.HashRingWorker.Proxy)
 
-		hw.hashring = hashring.NewHashRing(hw.config.VNodes)
+		hw.hashring = hashring.NewHashRing(hw.config.HashRingWorker.VNodes)
 
 		hw.hashring.AddNodes([]string{"global.Config.Name"})
 
@@ -57,8 +51,12 @@ func (hw *HashRingWorkerT) InitWorker() {
 	global.ServerState.SetHashringReady()
 }
 
-func (hw *HashRingWorkerT) discoverServerAddresses() (instancesAddrs []string, err error) {
-	discoveredHosts, err := net.LookupHost(hw.config.Proxy)
+func (hw *HashringWorkerT) Shutdown() {
+
+}
+
+func (hw *HashringWorkerT) discoverServerAddresses() (instancesAddrs []string, err error) {
+	discoveredHosts, err := net.LookupHost(hw.config.HashRingWorker.Proxy)
 	if err != nil {
 		return instancesAddrs, err
 	}
@@ -73,7 +71,7 @@ func (hw *HashRingWorkerT) discoverServerAddresses() (instancesAddrs []string, e
 	return instancesAddrs, err
 }
 
-func (h *HashRingWorkerT) checkHealth(address string) (err error) {
+func (h *HashringWorkerT) checkHealth(address string) (err error) {
 	// TODO: add config to get api
 	requestURL := fmt.Sprintf("http://%s:%s%s",
 		address,
@@ -92,7 +90,7 @@ func (h *HashRingWorkerT) checkHealth(address string) (err error) {
 	return err
 }
 
-func (hw *HashRingWorkerT) getServersInfo(addrsAdded []string) (result []v1alpha1.ServerT) {
+func (hw *HashringWorkerT) getServersInfo(addrsAdded []string) (result []pools.ServerT) {
 	for _, address := range addrsAdded {
 		err := hw.checkHealth(address)
 		if err != nil {
@@ -119,7 +117,7 @@ func (hw *HashRingWorkerT) getServersInfo(addrsAdded []string) (result []v1alpha
 		}
 		res.Body.Close()
 
-		server := v1alpha1.ServerT{}
+		server := pools.ServerT{}
 		err = json.Unmarshal(resBodyBytes, &server)
 		if err != nil {
 			// logger.Logger.Errorf("error parsing info request body of instance with address '%s': %s", address, err.Error())
@@ -132,7 +130,7 @@ func (hw *HashRingWorkerT) getServersInfo(addrsAdded []string) (result []v1alpha
 	return result
 }
 
-func (hw *HashRingWorkerT) getServersPoolChanges(currentServersAddrsList []string) (added []v1alpha1.ServerT, removed []v1alpha1.ServerT) {
+func (hw *HashringWorkerT) getServersPoolChanges(currentServersAddrsList []string) (added []pools.ServerT, removed []pools.ServerT) {
 	storedPool := hw.serverInstancePool.GetPool()
 
 	for _, server := range storedPool {
@@ -153,7 +151,7 @@ func (hw *HashRingWorkerT) getServersPoolChanges(currentServersAddrsList []strin
 	return added, removed
 }
 
-func (hw *HashRingWorkerT) flow() {
+func (hw *HashringWorkerT) flow() {
 	for {
 		time.Sleep(2 * time.Second)
 

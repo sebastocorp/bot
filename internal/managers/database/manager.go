@@ -2,6 +2,7 @@ package database
 
 import (
 	"bot/api/v1alpha1"
+	"bot/internal/pools"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -51,7 +52,7 @@ func NewManager(ctx context.Context, db v1alpha1.DatabaseT) (man ManagerT, err e
 	return man, err
 }
 
-func (m *ManagerT) InsertObjectListIfNotExist(objectList []v1alpha1.DatabaseRequestT) (err error) {
+func (m *ManagerT) InsertObjectListIfNotExist(objectList []pools.DatabaseRequestT) (err error) {
 	objectListLen := len(objectList)
 
 	insertQueryClause := fmt.Sprintf("INSERT IGNORE INTO %s (blob_path,md5sum,bucket_name) VALUES ",

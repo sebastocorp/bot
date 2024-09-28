@@ -2,7 +2,6 @@ package objectWorker
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -15,7 +14,7 @@ import (
 )
 
 type ObjectWorkerT struct {
-	config v1alpha1.ObjectWorkerConfigT
+	config *v1alpha1.BOTConfigT
 	log    logger.LoggerT
 
 	ObjectManager       objectStorage.ManagerT
@@ -27,37 +26,27 @@ type ObjectWorkerT struct {
 
 // WORKER Functions
 
-func NewObjectWorker(config v1alpha1.ObjectWorkerConfigT) (ow *ObjectWorkerT, err error) {
+func NewObjectWorker(config *v1alpha1.BOTConfigT) (ow *ObjectWorkerT, err error) {
 	ow = &ObjectWorkerT{
 		config: config,
 	}
 
-	if ow.config.MaxChildTheads <= 0 {
-		err = fmt.Errorf("config option objectWorker.maxChildTheads with value '%d', must be a number > 0",
-			ow.config.MaxChildTheads,
-		)
-		return ow, err
-	}
-
-	if ow.config.RequestsByChildThread <= 0 {
-		err = fmt.Errorf("config option objectWorker.requestsByChildThread with value '%d', must be a number > 0",
-			ow.config.MaxChildTheads,
-		)
-		return ow, err
-	}
-
 	ow.ObjectManager, err = objectStorage.NewManager(
 		context.Background(),
-		ow.config.ObjectStorage.S3,
-		ow.config.ObjectStorage.GCS,
+		ow.config.ObjectWorker.ObjectStorage.S3,
+		ow.config.ObjectWorker.ObjectStorage.GCS,
 	)
 
 	return ow, err
 }
 
-func (ow *ObjectWorkerT) InitWorker() {
+func (ow *ObjectWorkerT) Run() {
 	global.ServerState.SetObjectReady()
 	go ow.flow()
+}
+
+func (ow *ObjectWorkerT) Shutdown() {
+
 }
 
 func (ow *ObjectWorkerT) flow() {
@@ -79,8 +68,8 @@ func (ow *ObjectWorkerT) flow() {
 			continue
 		}
 
-		threadList := [][]v1alpha1.TransferRequestT{}
-		requestList := []v1alpha1.TransferRequestT{}
+		threadList := [][]pools.ObjectRequestT{}
+		requestList := []pools.ObjectRequestT{}
 		currentThreads := 0
 		requestIndex := 0
 		requestsCount := 0
@@ -89,12 +78,12 @@ func (ow *ObjectWorkerT) flow() {
 			ow.objectRequestPool.RemoveRequest(key)
 			requestsCount++
 
-			if requestIndex++; requestIndex >= ow.config.RequestsByChildThread {
+			if requestIndex++; requestIndex >= ow.config.ObjectWorker.RequestsByChildThread {
 				threadList = append(threadList, requestList)
 				requestIndex = 0
-				requestList = []v1alpha1.TransferRequestT{}
+				requestList = []pools.ObjectRequestT{}
 
-				if currentThreads++; currentThreads >= ow.config.MaxChildTheads {
+				if currentThreads++; currentThreads >= ow.config.ObjectWorker.MaxChildTheads {
 					break
 				}
 			}
@@ -121,7 +110,7 @@ func (ow *ObjectWorkerT) flow() {
 	}
 }
 
-func (ow *ObjectWorkerT) processRequestList(wg *sync.WaitGroup, requests []v1alpha1.TransferRequestT) {
+func (ow *ObjectWorkerT) processRequestList(wg *sync.WaitGroup, requests []pools.ObjectRequestT) {
 	defer wg.Done()
 
 	logExtraFields := map[string]any{

@@ -27,6 +27,7 @@ type ObjectWorkerConfigT struct {
 	MaxChildTheads        int            `yaml:"maxChildTheads,omitempty"`
 	RequestsByChildThread int            `yaml:"requestsByChildThread,omitempty"`
 	ObjectStorage         ObjectStorageT `yaml:"objectStorage"`
+	Source                SourceConfigT  `yaml:"source"`
 }
 
 type ObjectStorageT struct {
@@ -44,6 +45,17 @@ type S3T struct {
 
 type GCST struct {
 	CredentialsFile string `yaml:"credentialsFile"`
+}
+
+type SourceConfigT struct {
+	Type       string                                `yaml:"type"`
+	ObjectMods map[string]ObjectModificationsConfigT `yaml:"objectModifications"`
+}
+
+type ObjectModificationsConfigT struct {
+	Bucket       string `yaml:"bucket"`
+	AddPrefix    string `yaml:"addPrefix"`
+	RemovePrefix string `yaml:"removePrefix"`
 }
 
 //--------------------------------------------------------------

@@ -15,19 +15,19 @@ import (
 )
 
 type DatabaseWorkerT struct {
-	config v1alpha1.DatabaseWorkerConfigT
+	config *v1alpha1.BOTConfigT
 	log    logger.LoggerT
 
 	databaseRequestPool *pools.DatabaseRequestPoolT
 	databaseManager     database.ManagerT
 }
 
-func NewDatabaseWorker(config v1alpha1.DatabaseWorkerConfigT) (dw *DatabaseWorkerT, err error) {
+func NewDatabaseWorker(config *v1alpha1.BOTConfigT) (dw *DatabaseWorkerT, err error) {
 	dw = &DatabaseWorkerT{
 		config: config,
 	}
 
-	level, err := logger.GetLevel(dw.config.LogLevel)
+	level, err := logger.GetLevel(dw.config.DatabaseWorker.LogLevel)
 	if err != nil {
 		level = logger.INFO
 	}
@@ -37,52 +37,8 @@ func NewDatabaseWorker(config v1alpha1.DatabaseWorkerConfigT) (dw *DatabaseWorke
 		"component": "databaseWorker",
 	})
 
-	if dw.config.Database.Host == "" {
-		err = fmt.Errorf("database host config is empty")
-		return dw, err
-	}
-
-	if dw.config.Database.Port == "" {
-		err = fmt.Errorf("database port config is empty")
-		return dw, err
-	}
-
-	if dw.config.Database.Database == "" {
-		err = fmt.Errorf("database name config is empty")
-		return dw, err
-	}
-
-	if dw.config.Database.Table == "" {
-		err = fmt.Errorf("database table config is empty")
-		return dw, err
-	}
-
-	if dw.config.Database.Username == "" {
-		err = fmt.Errorf("database user config is empty")
-		return dw, err
-	}
-
-	if dw.config.Database.Password == "" {
-		err = fmt.Errorf("database password config is empty")
-		return dw, err
-	}
-
-	if dw.config.MaxChildTheads <= 0 {
-		err = fmt.Errorf("config option databaseWorker.maxChildTheads with value '%d', must be a number > 0",
-			dw.config.MaxChildTheads,
-		)
-		return dw, err
-	}
-
-	if dw.config.RequestsByChildThread <= 0 {
-		err = fmt.Errorf("config option databaseWorker.requestsByChildThread with value '%d', must be a number > 0",
-			dw.config.MaxChildTheads,
-		)
-		return dw, err
-	}
-
 	dw.databaseManager, err = database.NewManager(context.Background(),
-		dw.config.Database,
+		dw.config.DatabaseWorker.Database,
 	)
 
 	return dw, err
@@ -115,8 +71,8 @@ func (dw *DatabaseWorkerT) flow() {
 			continue
 		}
 
-		threadList := [][]v1alpha1.DatabaseRequestT{}
-		requestList := []v1alpha1.DatabaseRequestT{}
+		threadList := [][]pools.DatabaseRequestT{}
+		requestList := []pools.DatabaseRequestT{}
 		currentThreads := 0
 		requestIndex := 0
 		requestsCount := 0
@@ -125,12 +81,12 @@ func (dw *DatabaseWorkerT) flow() {
 			dw.databaseRequestPool.RemoveRequest(key)
 			requestsCount++
 
-			if requestIndex++; requestIndex >= dw.config.RequestsByChildThread {
+			if requestIndex++; requestIndex >= dw.config.DatabaseWorker.RequestsByChildThread {
 				threadList = append(threadList, requestList)
 				requestIndex = 0
-				requestList = []v1alpha1.DatabaseRequestT{}
+				requestList = []pools.DatabaseRequestT{}
 
-				if currentThreads++; currentThreads >= dw.config.MaxChildTheads {
+				if currentThreads++; currentThreads >= dw.config.DatabaseWorker.MaxChildTheads {
 					break
 				}
 			}
@@ -156,7 +112,7 @@ func (dw *DatabaseWorkerT) flow() {
 	}
 }
 
-func (dw *DatabaseWorkerT) processRequestList(wg *sync.WaitGroup, requests []v1alpha1.DatabaseRequestT) {
+func (dw *DatabaseWorkerT) processRequestList(wg *sync.WaitGroup, requests []pools.DatabaseRequestT) {
 	defer wg.Done()
 	reqsStr := ""
 	for _, req := range requests {

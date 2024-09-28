@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"fmt"
 	"os"
 
 	"bot/api/v1alpha1"
@@ -21,9 +22,94 @@ func parseConfig(filepath string) (config v1alpha1.BOTConfigT, err error) {
 		return config, err
 	}
 
-	if config.APIService.Address == "" {
-		config.APIService.Address = "0.0.0.0"
+	return config, err
+}
+
+func (b *BotT) checkConfig() (err error) {
+
+	//--------------------------------------------------------------
+	// CHECK API CONFIG
+	//--------------------------------------------------------------
+
+	if b.config.APIService.Address == "" {
+		b.config.APIService.Address = "0.0.0.0"
 	}
 
-	return config, err
+	//--------------------------------------------------------------
+	// CHECK OBJECT CONFIG
+	//--------------------------------------------------------------
+
+	if b.config.ObjectWorker.MaxChildTheads <= 0 {
+		err = fmt.Errorf("config option objectWorker.maxChildTheads with value '%d', must be a number > 0",
+			b.config.ObjectWorker.MaxChildTheads,
+		)
+		return err
+	}
+
+	if b.config.ObjectWorker.RequestsByChildThread <= 0 {
+		err = fmt.Errorf("config option objectWorker.requestsByChildThread with value '%d', must be a number > 0",
+			b.config.ObjectWorker.MaxChildTheads,
+		)
+		return err
+	}
+
+	//--------------------------------------------------------------
+	// CHECK DATABASE CONFIG
+	//--------------------------------------------------------------
+
+	if b.config.DatabaseWorker.Database.Host == "" {
+		err = fmt.Errorf("database host config is empty")
+		return err
+	}
+
+	if b.config.DatabaseWorker.Database.Port == "" {
+		err = fmt.Errorf("database port config is empty")
+		return err
+	}
+
+	if b.config.DatabaseWorker.Database.Database == "" {
+		err = fmt.Errorf("database name config is empty")
+		return err
+	}
+
+	if b.config.DatabaseWorker.Database.Table == "" {
+		err = fmt.Errorf("database table config is empty")
+		return err
+	}
+
+	if b.config.DatabaseWorker.Database.Username == "" {
+		err = fmt.Errorf("database user config is empty")
+		return err
+	}
+
+	if b.config.DatabaseWorker.Database.Password == "" {
+		err = fmt.Errorf("database password config is empty")
+		return err
+	}
+
+	if b.config.DatabaseWorker.MaxChildTheads <= 0 {
+		err = fmt.Errorf("config option databaseWorker.maxChildTheads with value '%d', must be a number > 0",
+			b.config.DatabaseWorker.MaxChildTheads,
+		)
+		return err
+	}
+
+	if b.config.DatabaseWorker.RequestsByChildThread <= 0 {
+		err = fmt.Errorf("config option databaseWorker.requestsByChildThread with value '%d', must be a number > 0",
+			b.config.DatabaseWorker.MaxChildTheads,
+		)
+		return err
+	}
+
+	//--------------------------------------------------------------
+	// CHECK HASHRING CONFIG
+	//--------------------------------------------------------------
+
+	if b.config.HashRingWorker.Enabled {
+		if b.config.HashRingWorker.VNodes <= 0 {
+			b.config.HashRingWorker.VNodes = 1
+		}
+	}
+
+	return err
 }

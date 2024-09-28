@@ -6,13 +6,13 @@ import (
 	"time"
 )
 
-func (hw *HashRingWorkerT) CheckOwnHost() {
+func (hw *HashringWorkerT) CheckOwnHost() {
 
 	found := false
 	for !found {
 		time.Sleep(4 * time.Second)
 
-		discoveredHosts, err := net.LookupHost(hw.config.Proxy)
+		discoveredHosts, err := net.LookupHost(hw.config.HashRingWorker.Proxy)
 		if err != nil {
 			// logger.Logger.Errorf("unable to look up in '%s' proxy host: %s", global.Config.HashRingWorker.Proxy, err.Error())
 			continue

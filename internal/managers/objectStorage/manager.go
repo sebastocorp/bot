@@ -39,7 +39,7 @@ func NewManager(ctx context.Context, s3 v1alpha1.S3T, gcs v1alpha1.GCST) (man Ma
 }
 
 func (m *ManagerT) S3ObjectExist(obj v1alpha1.ObjectT) (info v1alpha1.ObjectInfoT, err error) {
-	stat, err := m.S3Client.StatObject(m.Ctx, obj.BucketName, obj.ObjectPath, minio.GetObjectOptions{})
+	stat, err := m.S3Client.StatObject(m.Ctx, obj.Bucket, obj.Path, minio.GetObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			err = nil
@@ -58,7 +58,7 @@ func (m *ManagerT) S3ObjectExist(obj v1alpha1.ObjectT) (info v1alpha1.ObjectInfo
 }
 
 func (m *ManagerT) GCSObjectExist(obj v1alpha1.ObjectT) (info v1alpha1.ObjectInfoT, err error) {
-	stat, err := m.GCSClient.Bucket(obj.BucketName).Object(obj.ObjectPath).Attrs(m.Ctx)
+	stat, err := m.GCSClient.Bucket(obj.Bucket).Object(obj.Path).Attrs(m.Ctx)
 	if err != nil {
 		if err == storage.ErrObjectNotExist {
 			err = nil
@@ -69,7 +69,7 @@ func (m *ManagerT) GCSObjectExist(obj v1alpha1.ObjectT) (info v1alpha1.ObjectInf
 	}
 
 	if len(stat.MD5) == 0 {
-		err = fmt.Errorf("object '%s' without md5 assosiated in '%s' source bucket", obj.ObjectPath, obj.BucketName)
+		err = fmt.Errorf("object '%s' without md5 assosiated in '%s' source bucket", obj.Path, obj.Bucket)
 		return info, err
 	}
 
@@ -82,7 +82,7 @@ func (m *ManagerT) GCSObjectExist(obj v1alpha1.ObjectT) (info v1alpha1.ObjectInf
 }
 
 func (m *ManagerT) TransferObjectFromGCSToS3(src, dst v1alpha1.ObjectT) (info v1alpha1.ObjectInfoT, err error) {
-	object := m.GCSClient.Bucket(src.BucketName).Object(src.ObjectPath)
+	object := m.GCSClient.Bucket(src.Bucket).Object(src.Path)
 	stat, err := object.Attrs(m.Ctx)
 	if err != nil {
 		return info, err
@@ -99,7 +99,7 @@ func (m *ManagerT) TransferObjectFromGCSToS3(src, dst v1alpha1.ObjectT) (info v1
 	}
 	defer srcReader.Close()
 
-	_, err = m.S3Client.PutObject(m.Ctx, dst.BucketName, dst.ObjectPath, srcReader, srcReader.Attrs.Size,
+	_, err = m.S3Client.PutObject(m.Ctx, dst.Bucket, dst.Path, srcReader, srcReader.Attrs.Size,
 		minio.PutObjectOptions{
 			CacheControl:    srcReader.Attrs.CacheControl,
 			ContentEncoding: srcReader.Attrs.ContentEncoding,

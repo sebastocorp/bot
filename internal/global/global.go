@@ -3,17 +3,47 @@ package global
 const (
 	HeaderContentTypeAppJson = "application/json"
 
-	EndpointHealth          = "/health"
+	EndpointHealth          = "/healthz"
 	EndpointInfo            = "/info"
-	EndpointRequestObject   = "/transfer"
+	EndpointRequestTransfer = "/transfer"
+	EndpointRequestObject   = "/request/object"
 	EndpointRequestDatabase = "/request/database"
 )
 
+const (
+	LogCommonFieldKeyService   = "service"
+	LogCommonFieldKeyInstance  = "instance"
+	LogCommonFieldKeyComponent = "component"
+
+	LogCommonExtraFieldKeyError         = "error"
+	LogCommonExtraFieldKeyObject        = "object"
+	LogCommonExtraFieldKeyBackendObject = "backend_object"
+	LogCommonExtraFieldKeyRequestCount  = "request_count"
+	LogCommonExtraFieldKeyRequestId     = "request_id"
+	LogCommonExtraFieldKeyRequestList   = "request_list"
+	LogCommonExtraFieldKeyThreads       = "threads"
+	LogCommonExtraFieldKeyPoolLen       = "pool_len"
+
+	LogFieldValueNone = "none"
+)
+
 var (
-	// HashRing    *hashring.HashRingT
 	ServerState ServerReadyT
 
-	// ServerInstancesPool = pools.NewServerPool()
-	// TransferRequestPool = pools.NewTransferRequestPool()
-	// DatabaseRequestPool = pools.NewDatabaseRequestPool()
+	LogCommonFields = map[string]any{
+		LogCommonFieldKeyService:   "bot",
+		LogCommonFieldKeyInstance:  LogFieldValueNone,
+		LogCommonFieldKeyComponent: LogFieldValueNone,
+	}
+
+	LogCommonExtraFields = map[string]any{
+		LogCommonExtraFieldKeyError:         LogFieldValueNone,
+		LogCommonExtraFieldKeyObject:        LogFieldValueNone,
+		LogCommonExtraFieldKeyBackendObject: LogFieldValueNone,
+		LogCommonExtraFieldKeyRequestCount:  LogFieldValueNone,
+		LogCommonExtraFieldKeyRequestId:     LogFieldValueNone,
+		LogCommonExtraFieldKeyRequestList:   LogFieldValueNone,
+		LogCommonExtraFieldKeyThreads:       LogFieldValueNone,
+		LogCommonExtraFieldKeyPoolLen:       LogFieldValueNone,
+	}
 )
