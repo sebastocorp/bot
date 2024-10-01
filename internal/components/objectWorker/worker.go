@@ -2,13 +2,13 @@ package objectWorker
 
 import (
 	"context"
+	"maps"
 	"sync"
 	"time"
 
 	"bot/api/v1alpha1"
 	"bot/internal/global"
 	"bot/internal/logger"
-	"bot/internal/managers/hashring"
 	"bot/internal/managers/objectStorage"
 	"bot/internal/pools"
 )
@@ -17,11 +17,11 @@ type ObjectWorkerT struct {
 	config *v1alpha1.BOTConfigT
 	log    logger.LoggerT
 
-	ObjectManager       objectStorage.ManagerT
-	hashring            *hashring.HashRingT
+	ObjectManager objectStorage.ManagerT
+	// hashring            *hashring.HashRingT
 	objectRequestPool   *pools.ObjectRequestPoolT
 	databaseRequestPool *pools.DatabaseRequestPoolT
-	serverInstancePool  *pools.ServerInstancesPoolT
+	// serverInstancePool  *pools.ServerInstancesPoolT
 }
 
 // WORKER Functions
@@ -30,6 +30,17 @@ func NewObjectWorker(config *v1alpha1.BOTConfigT) (ow *ObjectWorkerT, err error)
 	ow = &ObjectWorkerT{
 		config: config,
 	}
+
+	level, err := logger.GetLevel(ow.config.ObjectWorker.LogLevel)
+	if err != nil {
+		level = logger.INFO
+	}
+
+	logCommonFields := map[string]any{}
+	maps.Copy(logCommonFields, global.LogCommonFields)
+	logCommonFields[global.LogFieldKeyCommonComponent] = global.LogFieldValueComponentDatabaseWorker
+
+	ow.log = logger.NewLogger(context.Background(), level, logCommonFields)
 
 	ow.ObjectManager, err = objectStorage.NewManager(
 		context.Background(),
@@ -50,12 +61,7 @@ func (ow *ObjectWorkerT) Shutdown() {
 }
 
 func (ow *ObjectWorkerT) flow() {
-	logExtraFields := map[string]any{
-		"error":    "none",
-		"requests": "none",
-		"threads":  "none",
-		"pool":     "none",
-	}
+	logExtraFields := maps.Clone(global.LogExtraFields)
 
 	for {
 		// CONSUME OBJECT TO MIGRATE FROM MAP OR WAIT
@@ -101,9 +107,9 @@ func (ow *ObjectWorkerT) flow() {
 			go ow.processRequestList(&wg, requests)
 		}
 
-		logExtraFields["requests"] = requestsCount
-		logExtraFields["threads"] = currentThreads
-		logExtraFields["pool"] = poolLen - requestsCount
+		logExtraFields[global.LogFieldKeyExtraActiveRequestCount] = requestsCount
+		logExtraFields[global.LogFieldKeyExtraActiveThreadCount] = currentThreads
+		logExtraFields[global.LogFieldKeyExtraCurrentPoolLength] = poolLen - requestsCount
 		ow.log.Debug("object worker handle requests", logExtraFields)
 
 		wg.Wait()
@@ -113,13 +119,10 @@ func (ow *ObjectWorkerT) flow() {
 func (ow *ObjectWorkerT) processRequestList(wg *sync.WaitGroup, requests []pools.ObjectRequestT) {
 	defer wg.Done()
 
-	logExtraFields := map[string]any{
-		"error":   "none",
-		"request": "none",
-	}
+	logExtraFields := maps.Clone(global.LogExtraFields)
 
 	for _, request := range requests {
-		logExtraFields["request"] = request.String()
+		logExtraFields[global.LogFieldKeyExtraCurrentRequest] = request.String()
 		ow.log.Debug("process object transfer request", logExtraFields)
 
 		// if global.Config.HashRingWorker.Enabled {
@@ -140,7 +143,7 @@ func (ow *ObjectWorkerT) processRequestList(wg *sync.WaitGroup, requests []pools
 
 		err := ow.executeTransferRequest(request)
 		if err != nil {
-			logExtraFields["error"] = err.Error()
+			logExtraFields[global.LogFieldKeyExtraError] = err.Error()
 			ow.log.Error("unable to process object transfer request", logExtraFields)
 		} else {
 			ow.log.Debug("success in process object transfer request", logExtraFields)

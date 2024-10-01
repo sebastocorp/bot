@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"maps"
 	"net/http"
 	"time"
 
@@ -57,28 +58,25 @@ func NewApiService(config *v1alpha1.BOTConfigT) (a *APIServiceT) {
 }
 
 func (a *APIServiceT) Run() {
+	logExtraFields := maps.Clone(global.LogExtraFields)
 
 	global.ServerState.SetAPIReady()
 	go func() {
 		// service connections
 		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			a.log.Fatal("unable to serve api", map[string]any{
-				"error": err.Error(),
-			})
+			logExtraFields[global.LogFieldKeyExtraError] = err.Error()
+			a.log.Fatal("unable to serve api", logExtraFields)
 		}
 	}()
 }
 
 func (a *APIServiceT) Shutdown() {
-
-	logExtraFields := map[string]any{
-		"error": "none",
-	}
+	logExtraFields := maps.Clone(global.LogExtraFields)
 
 	ctx, cancel := context.WithTimeout(a.ctx, 1*time.Second)
 	if err := a.httpServer.Shutdown(ctx); err != nil {
-		logExtraFields["error"] = err.Error()
-		a.log.Fatal("error in shutdown: %s", logExtraFields)
+		logExtraFields[global.LogFieldKeyExtraError] = err.Error()
+		a.log.Fatal("error in service shutdown", logExtraFields)
 	}
 
 	cancel()
@@ -119,14 +117,12 @@ func (a *APIServiceT) getInfo(c *gin.Context) {
 // }
 
 func (a *APIServiceT) postTransferRequest(c *gin.Context) {
-	logExtraFields := map[string]any{
-		"error": "none",
-	}
+	logExtraFields := maps.Clone(global.LogExtraFields)
 
 	transfer := pools.ObjectRequestT{}
 	if err := c.ShouldBindJSON(&transfer.Object); err != nil {
-		logExtraFields["error"] = err.Error()
-		a.log.Error("error parsing transfer request", logExtraFields)
+		logExtraFields[global.LogFieldKeyExtraError] = err.Error()
+		a.log.Error("error parsing object request", logExtraFields)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

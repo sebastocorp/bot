@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"maps"
 	"sync"
 	"time"
 
@@ -32,10 +33,10 @@ func NewDatabaseWorker(config *v1alpha1.BOTConfigT) (dw *DatabaseWorkerT, err er
 		level = logger.INFO
 	}
 
-	dw.log = logger.NewLogger(context.Background(), level, map[string]any{
-		"service":   "bot",
-		"component": "databaseWorker",
-	})
+	logCommonFields := maps.Clone(global.LogCommonFields)
+	logCommonFields[global.LogFieldKeyCommonComponent] = global.LogFieldValueComponentDatabaseWorker
+
+	dw.log = logger.NewLogger(context.Background(), level, logCommonFields)
 
 	dw.databaseManager, err = database.NewManager(context.Background(),
 		dw.config.DatabaseWorker.Database,
@@ -53,12 +54,7 @@ func (d *DatabaseWorkerT) Shutdown() {
 }
 
 func (dw *DatabaseWorkerT) flow() {
-	logExtraFields := map[string]any{
-		"error":    "none",
-		"requests": "none",
-		"threads":  "none",
-		"pool":     "none",
-	}
+	logExtraFields := maps.Clone(global.LogExtraFields)
 
 	for {
 		// CONSUME REQUESTS TO MIGRATE FROM MAP OR WAIT
@@ -104,10 +100,11 @@ func (dw *DatabaseWorkerT) flow() {
 			go dw.processRequestList(&wg, requests)
 		}
 
-		logExtraFields["requests"] = requestsCount
-		logExtraFields["threads"] = currentThreads
-		logExtraFields["pool"] = poolLen - requestsCount
+		logExtraFields[global.LogFieldKeyExtraActiveRequestCount] = requestsCount
+		logExtraFields[global.LogFieldKeyExtraActiveThreadCount] = currentThreads
+		logExtraFields[global.LogFieldKeyExtraCurrentPoolLength] = poolLen - requestsCount
 		dw.log.Debug("database worker handle requests", logExtraFields)
+
 		wg.Wait()
 	}
 }
@@ -121,16 +118,14 @@ func (dw *DatabaseWorkerT) processRequestList(wg *sync.WaitGroup, requests []poo
 
 	idStr := fmt.Sprintf("%x", md5.Sum([]byte(reqsStr)))
 
-	logExtraFields := map[string]any{
-		"error":        "none",
-		"request_id":   idStr,
-		"request_list": reqsStr,
-	}
+	logExtraFields := maps.Clone(global.LogExtraFields)
+	logExtraFields[global.LogFieldKeyExtraRequestId] = idStr
+	logExtraFields[global.LogFieldKeyExtraRequestList] = reqsStr
 
 	dw.log.Info("process database request list", logExtraFields)
 	err := dw.databaseManager.InsertObjectListIfNotExist(requests)
 	if err != nil {
-		logExtraFields["error"] = err.Error()
+		logExtraFields[global.LogFieldKeyExtraError] = err.Error()
 		dw.log.Error("unable to process database request list", logExtraFields)
 	} else {
 		dw.log.Info("success in process database request list", logExtraFields)

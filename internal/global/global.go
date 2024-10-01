@@ -11,39 +11,45 @@ const (
 )
 
 const (
-	LogCommonFieldKeyService   = "service"
-	LogCommonFieldKeyInstance  = "instance"
-	LogCommonFieldKeyComponent = "component"
+	LogFieldKeyCommonService   = "service"
+	LogFieldKeyCommonInstance  = "instance"
+	LogFieldKeyCommonComponent = "component"
 
-	LogCommonExtraFieldKeyError         = "error"
-	LogCommonExtraFieldKeyObject        = "object"
-	LogCommonExtraFieldKeyBackendObject = "backend_object"
-	LogCommonExtraFieldKeyRequestCount  = "request_count"
-	LogCommonExtraFieldKeyRequestId     = "request_id"
-	LogCommonExtraFieldKeyRequestList   = "request_list"
-	LogCommonExtraFieldKeyThreads       = "threads"
-	LogCommonExtraFieldKeyPoolLen       = "pool_len"
+	LogFieldKeyExtraError              = "error"
+	LogFieldKeyExtraObject             = "object"
+	LogFieldKeyExtraBackendObject      = "backend_object"
+	LogFieldKeyExtraRequestId          = "request_id"
+	LogFieldKeyExtraRequestList        = "request_list"
+	LogFieldKeyExtraCurrentRequest     = "current_request"
+	LogFieldKeyExtraActiveRequestCount = "active_request_count"
+	LogFieldKeyExtraActiveThreadCount  = "active_thread_count"
+	LogFieldKeyExtraCurrentPoolLength  = "current_pool_length"
 
-	LogFieldValueNone = "none"
+	LogFieldValueDefault                 = "none"
+	LogFieldValueService                 = "bot"
+	LogFieldValueComponentAPIService     = "APIService"
+	LogFieldValueComponentObjectWorker   = "ObjectWorker"
+	LogFieldValueComponentDatabaseWorker = "DatabaseWorker"
+	LogFieldValueComponentHashringWorker = "HashringWorker"
 )
 
 var (
 	ServerState ServerReadyT
 
 	LogCommonFields = map[string]any{
-		LogCommonFieldKeyService:   "bot",
-		LogCommonFieldKeyInstance:  LogFieldValueNone,
-		LogCommonFieldKeyComponent: LogFieldValueNone,
+		LogFieldKeyCommonService:   "bot",
+		LogFieldKeyCommonInstance:  LogFieldValueDefault,
+		LogFieldKeyCommonComponent: LogFieldValueDefault,
 	}
 
-	LogCommonExtraFields = map[string]any{
-		LogCommonExtraFieldKeyError:         LogFieldValueNone,
-		LogCommonExtraFieldKeyObject:        LogFieldValueNone,
-		LogCommonExtraFieldKeyBackendObject: LogFieldValueNone,
-		LogCommonExtraFieldKeyRequestCount:  LogFieldValueNone,
-		LogCommonExtraFieldKeyRequestId:     LogFieldValueNone,
-		LogCommonExtraFieldKeyRequestList:   LogFieldValueNone,
-		LogCommonExtraFieldKeyThreads:       LogFieldValueNone,
-		LogCommonExtraFieldKeyPoolLen:       LogFieldValueNone,
+	LogExtraFields = map[string]any{
+		LogFieldKeyExtraError:              LogFieldValueDefault,
+		LogFieldKeyExtraObject:             LogFieldValueDefault,
+		LogFieldKeyExtraBackendObject:      LogFieldValueDefault,
+		LogFieldKeyExtraRequestId:          LogFieldValueDefault,
+		LogFieldKeyExtraRequestList:        LogFieldValueDefault,
+		LogFieldKeyExtraActiveRequestCount: LogFieldValueDefault,
+		LogFieldKeyExtraActiveThreadCount:  LogFieldValueDefault,
+		LogFieldKeyExtraCurrentPoolLength:  LogFieldValueDefault,
 	}
 )
