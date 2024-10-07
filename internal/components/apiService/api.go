@@ -2,6 +2,7 @@ package apiService
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -10,8 +11,6 @@ import (
 	"bot/internal/global"
 	"bot/internal/logger"
 	"bot/internal/pools"
-
-	"github.com/gin-gonic/gin"
 )
 
 type APIServiceT struct {
@@ -38,16 +37,21 @@ func NewApiService(config *v1alpha2.BOTConfigT, objectPool *pools.ObjectRequestP
 		logCommon,
 	)
 
-	router := gin.Default()
-	router.GET(global.EndpointHealthz, a.getHealthz)
-	router.GET(global.EndpointInfo, a.getInfo)
-	router.POST(global.EndpointRequestTransfer, a.postTransferRequest)
-	router.POST(global.EndpointRequestObject, a.postTransferRequest)
+	mux := http.NewServeMux()
+
+	// Endpoints
+	mux.HandleFunc(global.EndpointHealthz, a.getHealthz)
+	mux.HandleFunc(global.EndpointInfo, a.getInfo)
+	mux.HandleFunc(global.EndpointRequestTransfer, a.postTransferRequest)
+	mux.HandleFunc(global.EndpointRequestObject, a.postTransferRequest)
 
 	a.ctx = context.Background()
 	a.httpServer = &http.Server{
-		Addr:    fmt.Sprintf("%s:%s", a.config.APIService.Address, a.config.APIService.Port),
-		Handler: router.Handler(),
+		Addr:         fmt.Sprintf("%s:%s", a.config.APIService.Address, a.config.APIService.Port),
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		IdleTimeout:  15 * time.Second,
 	}
 
 	return a
@@ -69,7 +73,7 @@ func (a *APIServiceT) Run() {
 func (a *APIServiceT) Shutdown() {
 	logExtraFields := global.GetLogExtraFieldsAPI()
 
-	ctx, cancel := context.WithTimeout(a.ctx, 1*time.Second)
+	ctx, cancel := context.WithTimeout(a.ctx, 5*time.Second)
 	if err := a.httpServer.Shutdown(ctx); err != nil {
 		logExtraFields[global.LogFieldKeyExtraError] = err.Error()
 		a.log.Fatal("error in service shutdown", logExtraFields)
@@ -78,21 +82,38 @@ func (a *APIServiceT) Shutdown() {
 	cancel()
 }
 
-func (a *APIServiceT) getHealthz(c *gin.Context) {
-	if !global.ServerState.IsReady() {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
+func (a *APIServiceT) getHealthz(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "OK"})
+	result := "Unavailable"
+	statusCode := http.StatusServiceUnavailable
+
+	if global.ServerState.IsReady() {
+		statusCode = http.StatusOK
+		result = "OK"
+	}
+
+	w.WriteHeader(statusCode)
+	w.Write([]byte(result))
 }
 
-func (a *APIServiceT) getInfo(c *gin.Context) {
+func (a *APIServiceT) getInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	server := pools.ServerT{
 		Name:    a.config.Name,
 		Address: a.config.APIService.Address,
 	}
-	c.JSON(http.StatusOK, server)
+
+	w.Header().Set(global.HeaderContentType, global.HeaderContentTypeAppJson)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(server)
 }
 
 // example:
@@ -100,32 +121,33 @@ func (a *APIServiceT) getInfo(c *gin.Context) {
 // http://bot-host/transfer --header "Content-Type: application/json"
 // --data
 // {
-// 	"transfer":{
-// 		"from":{
-// 			"bucket":"backend-bucket",
-// 			"path":"path/to/object"
-// 		},
-// 		"to":{
-// 			"bucket":"frontend-bucket",
-// 			"path":"path/to/object"
-// 		}
-// 	}
-// }
+// 	"bucket":"backend-bucket",
+// 	"path":"path/to/object"
+// },
 
-func (a *APIServiceT) postTransferRequest(c *gin.Context) {
-	logExtraFields := global.GetLogExtraFieldsAPI()
-
-	transfer := pools.ObjectRequestT{}
-	if err := c.ShouldBindJSON(&transfer.Object); err != nil {
-		logExtraFields[global.LogFieldKeyExtraError] = err.Error()
-		a.log.Error("error parsing object request", logExtraFields)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+func (a *APIServiceT) postTransferRequest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	a.objectRequestPool.AddRequest(transfer)
-	c.JSON(http.StatusOK, gin.H{"message": "OK"})
+	logExtraFields := global.GetLogExtraFieldsAPI()
 
-	logExtraFields[global.LogFieldKeyExtraObject] = transfer.Object.String()
-	a.log.Info("transfer request added in pool", logExtraFields)
+	objectRequest := pools.ObjectRequestT{}
+	if err := json.NewDecoder(r.Body).Decode(&objectRequest.Object); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+
+		logExtraFields[global.LogFieldKeyExtraError] = err.Error()
+		a.log.Error("object request decode error", logExtraFields)
+		return
+	}
+
+	a.objectRequestPool.AddRequest(objectRequest)
+
+	w.Header().Set(global.HeaderContentType, global.HeaderContentTypeAppJson)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(objectRequest.Object)
+
+	logExtraFields[global.LogFieldKeyExtraObject] = objectRequest.Object.String()
+	a.log.Info("object request added in pool", logExtraFields)
 }

@@ -1,7 +1,9 @@
 package global
 
 const (
-	HeaderContentTypeAppJson = "application/json"
+	HeaderContentType          = "Content-Type"
+	HeaderContentTypeAppJson   = "application/json"
+	HeaderContentTypeTextPlain = "text/plain"
 
 	EndpointHealthz         = "/healthz"
 	EndpointInfo            = "/info"
