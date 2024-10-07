@@ -3,7 +3,7 @@ package global
 const (
 	HeaderContentTypeAppJson = "application/json"
 
-	EndpointHealth          = "/healthz"
+	EndpointHealthz         = "/healthz"
 	EndpointInfo            = "/info"
 	EndpointRequestTransfer = "/transfer"
 	EndpointRequestObject   = "/request/object"
@@ -20,7 +20,6 @@ const (
 	LogFieldKeyExtraBackendObject      = "backend_object"
 	LogFieldKeyExtraRequestId          = "request_id"
 	LogFieldKeyExtraRequestList        = "request_list"
-	LogFieldKeyExtraCurrentRequest     = "current_request"
 	LogFieldKeyExtraActiveRequestCount = "active_request_count"
 	LogFieldKeyExtraActiveThreadCount  = "active_thread_count"
 	LogFieldKeyExtraCurrentPoolLength  = "current_pool_length"
@@ -35,21 +34,49 @@ const (
 
 var (
 	ServerState ServerReadyT
+)
 
-	LogCommonFields = map[string]any{
+func GetLogCommonFields() map[string]any {
+	return map[string]any{
 		LogFieldKeyCommonService:   "bot",
 		LogFieldKeyCommonInstance:  LogFieldValueDefault,
 		LogFieldKeyCommonComponent: LogFieldValueDefault,
 	}
+}
 
-	LogExtraFields = map[string]any{
+func GetLogExtraFieldsAPI() map[string]any {
+	return map[string]any{
+		LogFieldKeyExtraError:  LogFieldValueDefault,
+		LogFieldKeyExtraObject: LogFieldValueDefault,
+	}
+}
+
+func GetLogExtraFieldsObjectWorker() map[string]any {
+	return map[string]any{
 		LogFieldKeyExtraError:              LogFieldValueDefault,
 		LogFieldKeyExtraObject:             LogFieldValueDefault,
 		LogFieldKeyExtraBackendObject:      LogFieldValueDefault,
+		LogFieldKeyExtraActiveRequestCount: LogFieldValueDefault,
+		LogFieldKeyExtraActiveThreadCount:  LogFieldValueDefault,
+		LogFieldKeyExtraCurrentPoolLength:  LogFieldValueDefault,
+	}
+}
+
+func GetLogExtraFieldsDatabaseWorker() map[string]any {
+	return map[string]any{
+		LogFieldKeyExtraError:              LogFieldValueDefault,
 		LogFieldKeyExtraRequestId:          LogFieldValueDefault,
 		LogFieldKeyExtraRequestList:        LogFieldValueDefault,
 		LogFieldKeyExtraActiveRequestCount: LogFieldValueDefault,
 		LogFieldKeyExtraActiveThreadCount:  LogFieldValueDefault,
 		LogFieldKeyExtraCurrentPoolLength:  LogFieldValueDefault,
 	}
-)
+}
+
+func GetLogExtraFieldsHashringWorker() map[string]any {
+	return map[string]any{
+		LogFieldKeyExtraError:       LogFieldValueDefault,
+		LogFieldKeyExtraRequestId:   LogFieldValueDefault,
+		LogFieldKeyExtraRequestList: LogFieldValueDefault,
+	}
+}

@@ -40,16 +40,12 @@ func (b *BotT) checkConfig() (err error) {
 	//--------------------------------------------------------------
 
 	if b.config.ObjectWorker.MaxChildTheads <= 0 {
-		err = fmt.Errorf("config option objectWorker.maxChildTheads with value '%d', must be a number > 0",
-			b.config.ObjectWorker.MaxChildTheads,
-		)
+		err = fmt.Errorf("config option objectWorker.maxChildTheads must be a number > 0")
 		return err
 	}
 
 	if b.config.ObjectWorker.RequestsByChildThread <= 0 {
-		err = fmt.Errorf("config option objectWorker.requestsByChildThread with value '%d', must be a number > 0",
-			b.config.ObjectWorker.MaxChildTheads,
-		)
+		err = fmt.Errorf("config option objectWorker.requestsByChildThread must be a number > 0")
 		return err
 	}
 
@@ -88,16 +84,12 @@ func (b *BotT) checkConfig() (err error) {
 	}
 
 	if b.config.DatabaseWorker.MaxChildTheads <= 0 {
-		err = fmt.Errorf("config option databaseWorker.maxChildTheads with value '%d', must be a number > 0",
-			b.config.DatabaseWorker.MaxChildTheads,
-		)
+		err = fmt.Errorf("config option databaseWorker.maxChildTheads must be a number > 0")
 		return err
 	}
 
 	if b.config.DatabaseWorker.RequestsByChildThread <= 0 {
-		err = fmt.Errorf("config option databaseWorker.requestsByChildThread with value '%d', must be a number > 0",
-			b.config.DatabaseWorker.MaxChildTheads,
-		)
+		err = fmt.Errorf("config option databaseWorker.requestsByChildThread must be a number > 0")
 		return err
 	}
 

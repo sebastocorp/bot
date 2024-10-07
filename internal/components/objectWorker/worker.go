@@ -2,7 +2,6 @@ package objectWorker
 
 import (
 	"context"
-	"maps"
 	"sync"
 	"time"
 
@@ -26,9 +25,11 @@ type ObjectWorkerT struct {
 
 // WORKER Functions
 
-func NewObjectWorker(config *v1alpha1.BOTConfigT) (ow *ObjectWorkerT, err error) {
+func NewObjectWorker(config *v1alpha1.BOTConfigT, objectPool *pools.ObjectRequestPoolT, dbPool *pools.DatabaseRequestPoolT) (ow *ObjectWorkerT, err error) {
 	ow = &ObjectWorkerT{
-		config: config,
+		config:              config,
+		objectRequestPool:   objectPool,
+		databaseRequestPool: dbPool,
 	}
 
 	level, err := logger.GetLevel(ow.config.ObjectWorker.LogLevel)
@@ -36,11 +37,10 @@ func NewObjectWorker(config *v1alpha1.BOTConfigT) (ow *ObjectWorkerT, err error)
 		level = logger.INFO
 	}
 
-	logCommonFields := map[string]any{}
-	maps.Copy(logCommonFields, global.LogCommonFields)
-	logCommonFields[global.LogFieldKeyCommonComponent] = global.LogFieldValueComponentDatabaseWorker
-
-	ow.log = logger.NewLogger(context.Background(), level, logCommonFields)
+	logCommon := global.GetLogCommonFields()
+	logCommon[global.LogFieldKeyCommonInstance] = ow.config.Name
+	logCommon[global.LogFieldKeyCommonComponent] = global.LogFieldValueComponentObjectWorker
+	ow.log = logger.NewLogger(context.Background(), level, logCommon)
 
 	ow.ObjectManager, err = objectStorage.NewManager(
 		context.Background(),
@@ -57,11 +57,43 @@ func (ow *ObjectWorkerT) Run() {
 }
 
 func (ow *ObjectWorkerT) Shutdown() {
+	// logExtraFields := maps.Clone(global.LogExtraFields)
 
+	// transferRequestPool := ow.objectRequestPool.GetPool()
+	// for key, request := range transferRequestPool {
+	// 	ow.objectRequestPool.RemoveRequest(key)
+
+	// 	logExtraFields[global.LogFieldKeyExtraCurrentRequest] = request.String()
+	// 	ow.log.Debug("process object transfer request", logExtraFields)
+
+	// 	// if global.Config.HashRingWorker.Enabled {
+	// 	// 	serverName := global.HashRing.GetNode(request.To.ObjectPath)
+
+	// 	// 	if serverName != global.Config.Name {
+	// 	// 		// send transfer request to owner
+	// 	// 		logger.Logger.Infof("moving object transfer request '%s' to '%s'", request.String(), serverName)
+
+	// 	// 		err := ow.moveTransferRequest(serverName, request)
+	// 	// 		if err == nil {
+	// 	// 			return
+	// 	// 		}
+
+	// 	// 		logger.Logger.Errorf("unable to move object transfer request '%s' to '%s': %s", request.String(), serverName, err.Error())
+	// 	// 	}
+	// 	// }
+
+	// 	err := ow.executeTransferRequest(request)
+	// 	if err != nil {
+	// 		logExtraFields[global.LogFieldKeyExtraError] = err.Error()
+	// 		ow.log.Error("unable to process object transfer request", logExtraFields)
+	// 	} else {
+	// 		ow.log.Debug("success in process object transfer request", logExtraFields)
+	// 	}
+	// }
 }
 
 func (ow *ObjectWorkerT) flow() {
-	logExtraFields := maps.Clone(global.LogExtraFields)
+	logExtraFields := global.GetLogExtraFieldsObjectWorker()
 
 	for {
 		// CONSUME OBJECT TO MIGRATE FROM MAP OR WAIT
@@ -119,10 +151,10 @@ func (ow *ObjectWorkerT) flow() {
 func (ow *ObjectWorkerT) processRequestList(wg *sync.WaitGroup, requests []pools.ObjectRequestT) {
 	defer wg.Done()
 
-	logExtraFields := maps.Clone(global.LogExtraFields)
+	logExtraFields := global.GetLogExtraFieldsObjectWorker()
 
 	for _, request := range requests {
-		logExtraFields[global.LogFieldKeyExtraCurrentRequest] = request.String()
+		logExtraFields[global.LogFieldKeyExtraObject] = request.Object.String()
 		ow.log.Debug("process object transfer request", logExtraFields)
 
 		// if global.Config.HashRingWorker.Enabled {
@@ -141,7 +173,13 @@ func (ow *ObjectWorkerT) processRequestList(wg *sync.WaitGroup, requests []pools
 		// 	}
 		// }
 
-		err := ow.executeTransferRequest(request)
+		backend, err := ow.getBackendObject(request.Object)
+		if err != nil {
+			ow.log.Error("unable to get backend object reference", logExtraFields)
+		}
+
+		logExtraFields[global.LogFieldKeyExtraBackendObject] = backend.String()
+		err = ow.executeTransferRequest(request, backend)
 		if err != nil {
 			logExtraFields[global.LogFieldKeyExtraError] = err.Error()
 			ow.log.Error("unable to process object transfer request", logExtraFields)

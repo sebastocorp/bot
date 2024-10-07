@@ -8,20 +8,8 @@ import (
 	"bot/internal/pools"
 )
 
-func (ow *ObjectWorkerT) executeTransferRequest(request pools.ObjectRequestT) (err error) {
-	// check if destination object already exist
-	// destInfo, err := ow.ObjectManager.S3ObjectExist(request.Object)
-	// if err != nil {
-	// 	return err
-	// }
-	// request.Object.Info = destInfo
-
-	backend, err := ow.getBackendObject(request.Object)
-	if err != nil {
-		return err
-	}
-
-	sourceInfo, err := ow.ObjectManager.TransferObjectFromGCSToS3(backend, request.Object)
+func (ow *ObjectWorkerT) executeTransferRequest(request pools.ObjectRequestT, srcObject v1alpha1.ObjectT) (err error) {
+	sourceInfo, err := ow.ObjectManager.TransferObjectFromGCSToS3(srcObject, request.Object)
 	if err != nil {
 		return err
 	}

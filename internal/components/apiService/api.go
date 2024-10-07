@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"maps"
 	"net/http"
 	"time"
 
@@ -27,9 +26,10 @@ type APIServiceT struct {
 
 // API REST Functions
 
-func NewApiService(config *v1alpha1.BOTConfigT) (a *APIServiceT) {
+func NewApiService(config *v1alpha1.BOTConfigT, objectPool *pools.ObjectRequestPoolT) (a *APIServiceT) {
 	a = &APIServiceT{
-		config: config,
+		config:            config,
+		objectRequestPool: objectPool,
 	}
 
 	level, err := logger.GetLevel(a.config.APIService.LogLevel)
@@ -37,13 +37,13 @@ func NewApiService(config *v1alpha1.BOTConfigT) (a *APIServiceT) {
 		log.Fatalf("unable to get api service loglevel: %s", err.Error())
 	}
 
-	a.log = logger.NewLogger(context.Background(), level, map[string]any{
-		"service":   "bot",
-		"component": "api",
-	})
+	logCommon := global.GetLogCommonFields()
+	logCommon[global.LogFieldKeyCommonInstance] = a.config.Name
+	logCommon[global.LogFieldKeyCommonComponent] = global.LogFieldValueComponentAPIService
+	a.log = logger.NewLogger(context.Background(), level, logCommon)
 
 	router := gin.Default()
-	router.GET(global.EndpointHealth, a.getHealth)
+	router.GET(global.EndpointHealthz, a.getHealthz)
 	router.GET(global.EndpointInfo, a.getInfo)
 	router.POST(global.EndpointRequestTransfer, a.postTransferRequest)
 	router.POST(global.EndpointRequestObject, a.postTransferRequest)
@@ -58,7 +58,7 @@ func NewApiService(config *v1alpha1.BOTConfigT) (a *APIServiceT) {
 }
 
 func (a *APIServiceT) Run() {
-	logExtraFields := maps.Clone(global.LogExtraFields)
+	logExtraFields := global.GetLogExtraFieldsAPI()
 
 	global.ServerState.SetAPIReady()
 	go func() {
@@ -71,7 +71,7 @@ func (a *APIServiceT) Run() {
 }
 
 func (a *APIServiceT) Shutdown() {
-	logExtraFields := maps.Clone(global.LogExtraFields)
+	logExtraFields := global.GetLogExtraFieldsAPI()
 
 	ctx, cancel := context.WithTimeout(a.ctx, 1*time.Second)
 	if err := a.httpServer.Shutdown(ctx); err != nil {
@@ -82,7 +82,7 @@ func (a *APIServiceT) Shutdown() {
 	cancel()
 }
 
-func (a *APIServiceT) getHealth(c *gin.Context) {
+func (a *APIServiceT) getHealthz(c *gin.Context) {
 	if !global.ServerState.IsReady() {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
 		return
@@ -117,7 +117,7 @@ func (a *APIServiceT) getInfo(c *gin.Context) {
 // }
 
 func (a *APIServiceT) postTransferRequest(c *gin.Context) {
-	logExtraFields := maps.Clone(global.LogExtraFields)
+	logExtraFields := global.GetLogExtraFieldsAPI()
 
 	transfer := pools.ObjectRequestT{}
 	if err := c.ShouldBindJSON(&transfer.Object); err != nil {
@@ -130,5 +130,6 @@ func (a *APIServiceT) postTransferRequest(c *gin.Context) {
 	a.objectRequestPool.AddRequest(transfer)
 	c.JSON(http.StatusOK, gin.H{"message": "OK"})
 
+	logExtraFields[global.LogFieldKeyExtraObject] = transfer.Object.String()
 	a.log.Info("transfer request added in pool", logExtraFields)
 }

@@ -17,8 +17,8 @@ type ObjectRequestT struct {
 	Object v1alpha1.ObjectT
 }
 
-func NewTransferRequestPool() ObjectRequestPoolT {
-	return ObjectRequestPoolT{
+func NewObjectRequestPool() *ObjectRequestPoolT {
+	return &ObjectRequestPoolT{
 		requests: map[string]ObjectRequestT{},
 	}
 }

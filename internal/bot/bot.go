@@ -2,7 +2,8 @@ package bot
 
 import (
 	"context"
-	"log"
+	// "log"
+
 	"os"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"bot/internal/components/objectWorker"
 	"bot/internal/global"
 	"bot/internal/logger"
+	"bot/internal/pools"
 )
 
 type BotT struct {
@@ -44,27 +46,30 @@ func NewBotServer(configFilepath string) (botServer *BotT, err error) {
 
 	level, err := logger.GetLevel(botServer.config.APIService.LogLevel)
 	if err != nil {
-		log.Fatalf("unable to get api service loglevel: %s", err.Error())
+		return botServer, err
 	}
 
-	botServer.log = logger.NewLogger(context.Background(), level, map[string]any{
-		"service":   "bot",
-		"component": "none",
-	})
+	logCommon := global.GetLogCommonFields()
+	logCommon[global.LogFieldKeyCommonInstance] = botServer.config.Name
+	botServer.log = logger.NewLogger(context.Background(), level, logCommon)
 
-	botServer.APIService = apiService.NewApiService(&botServer.config)
+	dbPool := pools.NewDatabaseRequestPool()
+	objectPool := pools.NewObjectRequestPool()
+	serverPool := pools.NewServerPool()
 
-	botServer.ObjectWorker, err = objectWorker.NewObjectWorker(&botServer.config)
+	botServer.APIService = apiService.NewApiService(&botServer.config, objectPool)
+
+	botServer.ObjectWorker, err = objectWorker.NewObjectWorker(&botServer.config, objectPool, dbPool)
 	if err != nil {
 		return botServer, err
 	}
 
-	botServer.DatabaseWorker, err = databaseWorker.NewDatabaseWorker(&botServer.config)
+	botServer.DatabaseWorker, err = databaseWorker.NewDatabaseWorker(&botServer.config, dbPool)
 	if err != nil {
 		return botServer, err
 	}
 
-	botServer.HashringWorker = hashringWorker.NewHashringWorker(&botServer.config)
+	botServer.HashringWorker = hashringWorker.NewHashringWorker(&botServer.config, serverPool)
 
 	return botServer, err
 }
@@ -86,7 +91,10 @@ func (b *BotT) Run() {
 
 func (b *BotT) ShutdownActions(done chan bool, signal chan os.Signal) {
 	sig := <-signal
-	log.Printf("executing shutdown actions with signal '%s'", sig.String())
+
+	b.log.Debug("executing shutdown actions", map[string]any{
+		"signal": sig.String(),
+	})
 
 	b.APIService.Shutdown()
 	b.DatabaseWorker.Shutdown()

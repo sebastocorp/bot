@@ -52,11 +52,11 @@ func NewManager(ctx context.Context, db v1alpha1.DatabaseT) (man ManagerT, err e
 	return man, err
 }
 
-func (m *ManagerT) InsertObjectListIfNotExist(objectList []pools.DatabaseRequestT) (err error) {
+func (m *ManagerT) InsertObjectListIfNotExist(table string, objectList []pools.DatabaseRequestT) (err error) {
 	objectListLen := len(objectList)
 
 	insertQueryClause := fmt.Sprintf("INSERT IGNORE INTO %s (blob_path,md5sum,bucket_name) VALUES ",
-		"bucket_blobs", // TODO: add table name configuration to use here
+		table,
 	)
 	for index, object := range objectList {
 		// Insert the object into the database.

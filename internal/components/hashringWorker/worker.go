@@ -24,9 +24,10 @@ type HashringWorkerT struct {
 	serverInstancePool *pools.ServerInstancesPoolT
 }
 
-func NewHashringWorker(config *v1alpha1.BOTConfigT) (hw *HashringWorkerT) {
+func NewHashringWorker(config *v1alpha1.BOTConfigT, serverPool *pools.ServerInstancesPoolT) (hw *HashringWorkerT) {
 	hw = &HashringWorkerT{
-		config: config,
+		config:             config,
+		serverInstancePool: serverPool,
 	}
 
 	return hw
@@ -76,7 +77,7 @@ func (h *HashringWorkerT) checkHealth(address string) (err error) {
 	requestURL := fmt.Sprintf("http://%s:%s%s",
 		address,
 		"global.Config.APIService.Port",
-		global.EndpointHealth,
+		global.EndpointHealthz,
 	)
 	res, err := http.Get(requestURL)
 	if err != nil {
