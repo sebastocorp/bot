@@ -1,7 +1,8 @@
-package v1alpha1
+package v1alpha2
 
 type BOTConfigT struct {
 	Name           string                `yaml:"name"`
+	LogLevel       string                `yaml:"loglevel"`
 	APIService     APIServiceConfigT     `yaml:"apiService"`
 	ObjectWorker   ObjectWorkerConfigT   `yaml:"objectWorker"`
 	DatabaseWorker DatabaseWorkerConfigT `yaml:"databaseWorker"`
@@ -23,11 +24,11 @@ type APIServiceConfigT struct {
 //--------------------------------------------------------------
 
 type ObjectWorkerConfigT struct {
-	LogLevel              string         `yaml:"loglevel"`
-	MaxChildTheads        int            `yaml:"maxChildTheads,omitempty"`
-	RequestsByChildThread int            `yaml:"requestsByChildThread,omitempty"`
-	ObjectStorage         ObjectStorageT `yaml:"objectStorage"`
-	Source                SourceConfigT  `yaml:"source"`
+	LogLevel              string                    `yaml:"loglevel"`
+	MaxChildTheads        int                       `yaml:"maxChildTheads,omitempty"`
+	RequestsByChildThread int                       `yaml:"requestsByChildThread,omitempty"`
+	ObjectStorage         ObjectStorageT            `yaml:"objectStorage"`
+	ObjectModification    ObjectModificationConfigT `yaml:"objectModification"`
 }
 
 type ObjectStorageT struct {
@@ -47,12 +48,12 @@ type GCST struct {
 	CredentialsFile string `yaml:"credentialsFile"`
 }
 
-type SourceConfigT struct {
-	Type       string                                `yaml:"type"`
-	ObjectMods map[string]ObjectModificationsConfigT `yaml:"objectModifications"`
+type ObjectModificationConfigT struct {
+	Type string                         `yaml:"type"`
+	Mods map[string]ModificationConfigT `yaml:"modifications"`
 }
 
-type ObjectModificationsConfigT struct {
+type ModificationConfigT struct {
 	Bucket       string `yaml:"bucket"`
 	AddPrefix    string `yaml:"addPrefix"`
 	RemovePrefix string `yaml:"removePrefix"`

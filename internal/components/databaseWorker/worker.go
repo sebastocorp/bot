@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"bot/api/v1alpha1"
+	"bot/api/v1alpha2"
 	"bot/internal/global"
 	"bot/internal/logger"
 	"bot/internal/managers/database"
@@ -15,28 +15,26 @@ import (
 )
 
 type DatabaseWorkerT struct {
-	config *v1alpha1.BOTConfigT
+	config *v1alpha2.BOTConfigT
 	log    logger.LoggerT
 
 	databaseRequestPool *pools.DatabaseRequestPoolT
 	databaseManager     database.ManagerT
 }
 
-func NewDatabaseWorker(config *v1alpha1.BOTConfigT, dbPool *pools.DatabaseRequestPoolT) (dw *DatabaseWorkerT, err error) {
+func NewDatabaseWorker(config *v1alpha2.BOTConfigT, dbPool *pools.DatabaseRequestPoolT) (dw *DatabaseWorkerT, err error) {
 	dw = &DatabaseWorkerT{
 		config:              config,
 		databaseRequestPool: dbPool,
 	}
 
-	level, err := logger.GetLevel(dw.config.DatabaseWorker.LogLevel)
-	if err != nil {
-		level = logger.INFO
-	}
-
 	logCommon := global.GetLogCommonFields()
 	logCommon[global.LogFieldKeyCommonInstance] = dw.config.Name
 	logCommon[global.LogFieldKeyCommonComponent] = global.LogFieldValueComponentDatabaseWorker
-	dw.log = logger.NewLogger(context.Background(), level, logCommon)
+	dw.log = logger.NewLogger(context.Background(),
+		logger.GetLevel(dw.config.DatabaseWorker.LogLevel),
+		logCommon,
+	)
 
 	dw.databaseManager, err = database.NewManager(context.Background(),
 		dw.config.DatabaseWorker.Database,

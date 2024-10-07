@@ -1,7 +1,7 @@
 package objectStorage
 
 import (
-	"bot/api/v1alpha1"
+	"bot/api/v1alpha2"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -18,7 +18,24 @@ type ManagerT struct {
 	GCSClient *storage.Client
 }
 
-func NewManager(ctx context.Context, s3 v1alpha1.S3T, gcs v1alpha1.GCST) (man ManagerT, err error) {
+type ObjectT struct {
+	Bucket string      `json:"bucket"`
+	Path   string      `json:"path"`
+	Info   ObjectInfoT `json:"-"`
+}
+
+type ObjectInfoT struct {
+	Exist       bool
+	MD5         string
+	Size        int64
+	ContentType string
+}
+
+func (o *ObjectT) String() string {
+	return fmt.Sprintf("{bucket: '%s', object: '%s'}", o.Bucket, o.Path)
+}
+
+func NewManager(ctx context.Context, s3 v1alpha2.S3T, gcs v1alpha2.GCST) (man ManagerT, err error) {
 	man.Ctx = ctx
 
 	man.S3Client, err = minio.New(
@@ -38,7 +55,7 @@ func NewManager(ctx context.Context, s3 v1alpha1.S3T, gcs v1alpha1.GCST) (man Ma
 	return man, err
 }
 
-func (m *ManagerT) S3ObjectExist(obj v1alpha1.ObjectT) (info v1alpha1.ObjectInfoT, err error) {
+func (m *ManagerT) S3ObjectExist(obj ObjectT) (info ObjectInfoT, err error) {
 	stat, err := m.S3Client.StatObject(m.Ctx, obj.Bucket, obj.Path, minio.GetObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
@@ -57,7 +74,7 @@ func (m *ManagerT) S3ObjectExist(obj v1alpha1.ObjectT) (info v1alpha1.ObjectInfo
 	return info, err
 }
 
-func (m *ManagerT) GCSObjectExist(obj v1alpha1.ObjectT) (info v1alpha1.ObjectInfoT, err error) {
+func (m *ManagerT) GCSObjectExist(obj ObjectT) (info ObjectInfoT, err error) {
 	stat, err := m.GCSClient.Bucket(obj.Bucket).Object(obj.Path).Attrs(m.Ctx)
 	if err != nil {
 		if err == storage.ErrObjectNotExist {
@@ -81,7 +98,7 @@ func (m *ManagerT) GCSObjectExist(obj v1alpha1.ObjectT) (info v1alpha1.ObjectInf
 	return info, err
 }
 
-func (m *ManagerT) TransferObjectFromGCSToS3(src, dst v1alpha1.ObjectT) (info v1alpha1.ObjectInfoT, err error) {
+func (m *ManagerT) TransferObjectFromGCSToS3(src, dst ObjectT) (info ObjectInfoT, err error) {
 	object := m.GCSClient.Bucket(src.Bucket).Object(src.Path)
 	stat, err := object.Attrs(m.Ctx)
 	if err != nil {

@@ -2,7 +2,6 @@ package logger
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"maps"
 	"os"
@@ -42,19 +41,20 @@ func NewLogger(ctx context.Context, level LevelT, commonFields map[string]any) (
 	return logger
 }
 
-func GetLevel(levelStr string) (l LevelT, err error) {
+func GetLevel(levelStr string) (l LevelT) {
 	levelMap := map[string]LevelT{
 		"debug": DEBUG,
 		"info":  INFO,
 		"warn":  WARN,
 		"error": ERROR,
 	}
-	if l, ok := levelMap[levelStr]; ok {
-		return l, err
+
+	l, ok := levelMap[levelStr]
+	if !ok {
+		l = DEBUG
 	}
-	l = INFO
-	err = fmt.Errorf("log level '%s' not supported", levelStr)
-	return l, err
+
+	return l
 }
 
 func (l *LoggerT) Debug(msg string, extraFields map[string]any) {

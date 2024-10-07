@@ -3,11 +3,10 @@ package apiService
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
-	"bot/api/v1alpha1"
+	"bot/api/v1alpha2"
 	"bot/internal/global"
 	"bot/internal/logger"
 	"bot/internal/pools"
@@ -16,7 +15,7 @@ import (
 )
 
 type APIServiceT struct {
-	config *v1alpha1.BOTConfigT
+	config *v1alpha2.BOTConfigT
 	log    logger.LoggerT
 
 	ctx               context.Context
@@ -26,21 +25,18 @@ type APIServiceT struct {
 
 // API REST Functions
 
-func NewApiService(config *v1alpha1.BOTConfigT, objectPool *pools.ObjectRequestPoolT) (a *APIServiceT) {
+func NewApiService(config *v1alpha2.BOTConfigT, objectPool *pools.ObjectRequestPoolT) (a *APIServiceT) {
 	a = &APIServiceT{
 		config:            config,
 		objectRequestPool: objectPool,
 	}
 
-	level, err := logger.GetLevel(a.config.APIService.LogLevel)
-	if err != nil {
-		log.Fatalf("unable to get api service loglevel: %s", err.Error())
-	}
-
 	logCommon := global.GetLogCommonFields()
 	logCommon[global.LogFieldKeyCommonInstance] = a.config.Name
 	logCommon[global.LogFieldKeyCommonComponent] = global.LogFieldValueComponentAPIService
-	a.log = logger.NewLogger(context.Background(), level, logCommon)
+	a.log = logger.NewLogger(context.Background(), logger.GetLevel(a.config.APIService.LogLevel),
+		logCommon,
+	)
 
 	router := gin.Default()
 	router.GET(global.EndpointHealthz, a.getHealthz)

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"bot/api/v1alpha1"
+	"bot/api/v1alpha2"
 	"bot/internal/global"
 	"bot/internal/logger"
 	"bot/internal/managers/objectStorage"
@@ -13,7 +13,7 @@ import (
 )
 
 type ObjectWorkerT struct {
-	config *v1alpha1.BOTConfigT
+	config *v1alpha2.BOTConfigT
 	log    logger.LoggerT
 
 	ObjectManager objectStorage.ManagerT
@@ -25,22 +25,20 @@ type ObjectWorkerT struct {
 
 // WORKER Functions
 
-func NewObjectWorker(config *v1alpha1.BOTConfigT, objectPool *pools.ObjectRequestPoolT, dbPool *pools.DatabaseRequestPoolT) (ow *ObjectWorkerT, err error) {
+func NewObjectWorker(config *v1alpha2.BOTConfigT, objectPool *pools.ObjectRequestPoolT, dbPool *pools.DatabaseRequestPoolT) (ow *ObjectWorkerT, err error) {
 	ow = &ObjectWorkerT{
 		config:              config,
 		objectRequestPool:   objectPool,
 		databaseRequestPool: dbPool,
 	}
 
-	level, err := logger.GetLevel(ow.config.ObjectWorker.LogLevel)
-	if err != nil {
-		level = logger.INFO
-	}
-
 	logCommon := global.GetLogCommonFields()
 	logCommon[global.LogFieldKeyCommonInstance] = ow.config.Name
 	logCommon[global.LogFieldKeyCommonComponent] = global.LogFieldValueComponentObjectWorker
-	ow.log = logger.NewLogger(context.Background(), level, logCommon)
+	ow.log = logger.NewLogger(context.Background(),
+		logger.GetLevel(ow.config.ObjectWorker.LogLevel),
+		logCommon,
+	)
 
 	ow.ObjectManager, err = objectStorage.NewManager(
 		context.Background(),
@@ -154,7 +152,9 @@ func (ow *ObjectWorkerT) processRequestList(wg *sync.WaitGroup, requests []pools
 	logExtraFields := global.GetLogExtraFieldsObjectWorker()
 
 	for _, request := range requests {
+		backend := ow.getBackendObject(request.Object)
 		logExtraFields[global.LogFieldKeyExtraObject] = request.Object.String()
+		logExtraFields[global.LogFieldKeyExtraBackendObject] = backend.String()
 		ow.log.Debug("process object transfer request", logExtraFields)
 
 		// if global.Config.HashRingWorker.Enabled {
@@ -173,13 +173,7 @@ func (ow *ObjectWorkerT) processRequestList(wg *sync.WaitGroup, requests []pools
 		// 	}
 		// }
 
-		backend, err := ow.getBackendObject(request.Object)
-		if err != nil {
-			ow.log.Error("unable to get backend object reference", logExtraFields)
-		}
-
-		logExtraFields[global.LogFieldKeyExtraBackendObject] = backend.String()
-		err = ow.executeTransferRequest(request, backend)
+		err := ow.executeTransferRequest(request, backend)
 		if err != nil {
 			logExtraFields[global.LogFieldKeyExtraError] = err.Error()
 			ow.log.Error("unable to process object transfer request", logExtraFields)

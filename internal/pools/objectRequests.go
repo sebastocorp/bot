@@ -5,7 +5,7 @@ import (
 	"maps"
 	"sync"
 
-	"bot/api/v1alpha1"
+	"bot/internal/managers/objectStorage"
 )
 
 type ObjectRequestPoolT struct {
@@ -14,7 +14,7 @@ type ObjectRequestPoolT struct {
 }
 
 type ObjectRequestT struct {
-	Object v1alpha1.ObjectT
+	Object objectStorage.ObjectT
 }
 
 func NewObjectRequestPool() *ObjectRequestPoolT {

@@ -1,7 +1,7 @@
 package database
 
 import (
-	"bot/api/v1alpha1"
+	"bot/api/v1alpha2"
 	"bot/internal/pools"
 	"context"
 	"database/sql"
@@ -31,7 +31,7 @@ type ObjectT struct {
 	MD5    string
 }
 
-func NewManager(ctx context.Context, db v1alpha1.DatabaseT) (man ManagerT, err error) {
+func NewManager(ctx context.Context, db v1alpha2.DatabaseT) (man ManagerT, err error) {
 	man.Ctx = ctx
 
 	if db.Table == "" {

@@ -2,12 +2,10 @@ package bot
 
 import (
 	"context"
-	// "log"
-
 	"os"
 	"time"
 
-	"bot/api/v1alpha1"
+	"bot/api/v1alpha2"
 	"bot/internal/components/apiService"
 	"bot/internal/components/databaseWorker"
 	"bot/internal/components/hashringWorker"
@@ -18,7 +16,7 @@ import (
 )
 
 type BotT struct {
-	config v1alpha1.BOTConfigT
+	config v1alpha2.BOTConfigT
 	log    logger.LoggerT
 
 	APIService     *apiService.APIServiceT
@@ -44,14 +42,12 @@ func NewBotServer(configFilepath string) (botServer *BotT, err error) {
 		return botServer, err
 	}
 
-	level, err := logger.GetLevel(botServer.config.APIService.LogLevel)
-	if err != nil {
-		return botServer, err
-	}
-
 	logCommon := global.GetLogCommonFields()
 	logCommon[global.LogFieldKeyCommonInstance] = botServer.config.Name
-	botServer.log = logger.NewLogger(context.Background(), level, logCommon)
+	botServer.log = logger.NewLogger(context.Background(),
+		logger.GetLevel(botServer.config.LogLevel),
+		logCommon,
+	)
 
 	dbPool := pools.NewDatabaseRequestPool()
 	objectPool := pools.NewObjectRequestPool()

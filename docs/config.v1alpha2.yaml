@@ -1,0 +1,42 @@
+name: example
+loglevel: debug
+apiService:
+  loglevel: debug
+  address: "0.0.0.0"
+  port: "8080"
+objectWorker:
+  loglevel: debug
+  maxChildTheads: 1
+  requestsByChildThread: 1
+  objectStorage:
+    s3:
+      endpoint: "s3.example.com"
+      accessKeyID: "bbbbbbbbbbb"
+      secretAccessKey: "bbbbbbbbbbb"
+      region: "region"
+      secure: true
+    gcs:
+      credentialsFile: "creds.json"
+  objectModification:
+    type: bucket
+    modifications:
+      "bucket-name":
+        bucket: "new-bucket"
+        removePrefix: "trim-prefix/"
+        addPrefix: "add-prefix/"
+databaseWorker:
+  loglevel: debug
+  maxChildTheads: 1
+  requestsByChildThread: 1
+  database:
+    host: "127.0.0.1"
+    port: "3360"
+    username: "test"
+    password: "test"
+    database: "test"
+    table: "test_data"
+hashringWorker:
+  enabled: false
+  loglevel: debug
+  proxy: "hr.proxy.example.com"
+  vnodes: 1

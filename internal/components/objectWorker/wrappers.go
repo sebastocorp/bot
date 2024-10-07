@@ -1,14 +1,13 @@
 package objectWorker
 
 import (
-	"fmt"
 	"strings"
 
-	"bot/api/v1alpha1"
+	"bot/internal/managers/objectStorage"
 	"bot/internal/pools"
 )
 
-func (ow *ObjectWorkerT) executeTransferRequest(request pools.ObjectRequestT, srcObject v1alpha1.ObjectT) (err error) {
+func (ow *ObjectWorkerT) executeTransferRequest(request pools.ObjectRequestT, srcObject objectStorage.ObjectT) (err error) {
 	sourceInfo, err := ow.ObjectManager.TransferObjectFromGCSToS3(srcObject, request.Object)
 	if err != nil {
 		return err
@@ -25,22 +24,20 @@ func (ow *ObjectWorkerT) executeTransferRequest(request pools.ObjectRequestT, sr
 	return err
 }
 
-func (ow *ObjectWorkerT) getBackendObject(object v1alpha1.ObjectT) (backend v1alpha1.ObjectT, err error) {
-
-	if ow.config.ObjectWorker.Source.Type == "bucket" {
-		if mods, ok := ow.config.ObjectWorker.Source.ObjectMods[object.Bucket]; ok {
-			backend.Bucket = mods.Bucket
-			backend.Path = object.Path
-			backend.Path = strings.TrimPrefix(backend.Path, mods.RemovePrefix)
-			backend.Path = mods.AddPrefix + backend.Path
-
-			return backend, err
+func (ow *ObjectWorkerT) getBackendObject(object objectStorage.ObjectT) (backend objectStorage.ObjectT) {
+	backend = object
+	switch ow.config.ObjectWorker.ObjectModification.Type {
+	case "bucket":
+		{
+			if mods, ok := ow.config.ObjectWorker.ObjectModification.Mods[backend.Bucket]; ok {
+				backend.Bucket = mods.Bucket
+				backend.Path = strings.TrimPrefix(backend.Path, mods.RemovePrefix)
+				backend.Path = mods.AddPrefix + backend.Path
+			}
 		}
 	}
 
-	err = fmt.Errorf("object modification not defined")
-
-	return backend, err
+	return backend
 }
 
 // func (ow *ObjectWorkerT) moveTransferRequest(serverName string, request pools.ObjectRequestT) (err error) {
