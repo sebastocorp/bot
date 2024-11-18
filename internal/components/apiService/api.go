@@ -7,14 +7,14 @@ import (
 	"net/http"
 	"time"
 
-	"bot/api/v1alpha2"
+	"bot/api/v1alpha3"
 	"bot/internal/global"
 	"bot/internal/logger"
 	"bot/internal/pools"
 )
 
 type APIServiceT struct {
-	config *v1alpha2.BOTConfigT
+	config *v1alpha3.BOTConfigT
 	log    logger.LoggerT
 
 	ctx               context.Context
@@ -24,7 +24,7 @@ type APIServiceT struct {
 
 // API REST Functions
 
-func NewApiService(config *v1alpha2.BOTConfigT, objectPool *pools.ObjectRequestPoolT) (a *APIServiceT) {
+func NewApiService(config *v1alpha3.BOTConfigT, objectPool *pools.ObjectRequestPoolT) (a *APIServiceT) {
 	a = &APIServiceT{
 		config:            config,
 		objectRequestPool: objectPool,

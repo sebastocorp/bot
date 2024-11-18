@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"os"
 
-	"bot/api/v1alpha2"
+	"bot/api/v1alpha3"
 
 	"gopkg.in/yaml.v3"
 )
 
-func parseConfig(filepath string) (config v1alpha2.BOTConfigT, err error) {
+func parseConfig(filepath string) (config v1alpha3.BOTConfigT, err error) {
 	configBytes, err := os.ReadFile(filepath)
 	if err != nil {
 		return config, err

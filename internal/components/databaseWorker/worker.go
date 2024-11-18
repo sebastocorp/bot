@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"bot/api/v1alpha2"
+	"bot/api/v1alpha3"
 	"bot/internal/global"
 	"bot/internal/logger"
 	"bot/internal/managers/database"
@@ -15,14 +15,14 @@ import (
 )
 
 type DatabaseWorkerT struct {
-	config *v1alpha2.BOTConfigT
+	config *v1alpha3.BOTConfigT
 	log    logger.LoggerT
 
 	databaseRequestPool *pools.DatabaseRequestPoolT
 	databaseManager     database.ManagerT
 }
 
-func NewDatabaseWorker(config *v1alpha2.BOTConfigT, dbPool *pools.DatabaseRequestPoolT) (dw *DatabaseWorkerT, err error) {
+func NewDatabaseWorker(config *v1alpha3.BOTConfigT, dbPool *pools.DatabaseRequestPoolT) (dw *DatabaseWorkerT, err error) {
 	dw = &DatabaseWorkerT{
 		config:              config,
 		databaseRequestPool: dbPool,
@@ -54,16 +54,21 @@ func (d *DatabaseWorkerT) Shutdown() {
 func (dw *DatabaseWorkerT) flow() {
 	logExtraFields := global.GetLogExtraFieldsDatabaseWorker()
 
+	emptyPoolLog := true
 	for {
 		// CONSUME REQUESTS TO MIGRATE FROM MAP OR WAIT
 		databaseRequestPool := dw.databaseRequestPool.GetPool()
 
 		poolLen := len(databaseRequestPool)
 		if poolLen == 0 {
-			dw.log.Debug("database request pool empty", logExtraFields)
+			if emptyPoolLog {
+				dw.log.Debug("database request pool empty", logExtraFields)
+				emptyPoolLog = false
+			}
 			time.Sleep(2 * time.Second)
 			continue
 		}
+		emptyPoolLog = true
 
 		threadList := [][]pools.DatabaseRequestT{}
 		requestList := []pools.DatabaseRequestT{}

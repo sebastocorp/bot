@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"bot/api/v1alpha2"
+	"bot/api/v1alpha3"
 	"bot/internal/components/apiService"
 	"bot/internal/components/databaseWorker"
 	"bot/internal/components/hashringWorker"
@@ -16,7 +16,7 @@ import (
 )
 
 type BotT struct {
-	config v1alpha2.BOTConfigT
+	config v1alpha3.BOTConfigT
 	log    logger.LoggerT
 
 	APIService     *apiService.APIServiceT

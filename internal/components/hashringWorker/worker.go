@@ -9,7 +9,7 @@ import (
 	"slices"
 	"time"
 
-	"bot/api/v1alpha2"
+	"bot/api/v1alpha3"
 	"bot/internal/global"
 	"bot/internal/logger"
 	"bot/internal/managers/hashring"
@@ -17,14 +17,14 @@ import (
 )
 
 type HashringWorkerT struct {
-	config *v1alpha2.BOTConfigT
+	config *v1alpha3.BOTConfigT
 	log    logger.LoggerT
 
 	hashring           *hashring.HashRingT
 	serverInstancePool *pools.ServerInstancesPoolT
 }
 
-func NewHashringWorker(config *v1alpha2.BOTConfigT, serverPool *pools.ServerInstancesPoolT) (hw *HashringWorkerT) {
+func NewHashringWorker(config *v1alpha3.BOTConfigT, serverPool *pools.ServerInstancesPoolT) (hw *HashringWorkerT) {
 	hw = &HashringWorkerT{
 		config:             config,
 		serverInstancePool: serverPool,

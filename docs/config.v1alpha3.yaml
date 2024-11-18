@@ -1,0 +1,54 @@
+name: example
+loglevel: debug
+apiService:
+  loglevel: debug
+  address: "0.0.0.0"
+  port: "8080"
+objectWorker:
+  loglevel: debug
+  maxChildTheads: 1
+  requestsByChildThread: 1
+  sources:
+  - name: s3-example
+    type: s3
+    s3:
+      endpoint: "s3.example.com"
+      accessKeyID: "bbbbbbbbbbb"
+      secretAccessKey: "bbbbbbbbbbb"
+      region: "region"
+      secure: true
+  - name: gcs-example
+    type: gcs
+    gcs:
+      credentialsFile: "creds.json"
+  modifiers:
+  - name: mod-example
+    bucket: "new-bucket"
+    removePrefix: "trim-prefix/"
+    addPrefix: "add-prefix/"
+  routing:
+    type: bucket
+    routes:
+      "bucket-name":
+        front:
+          source: s3-example
+          modifiers: ["mod-example"]
+        backend:
+          source: gcs-example
+          modifiers: ["mod-example"]
+databaseWorker:
+  loglevel: debug
+  maxChildTheads: 1
+  requestsByChildThread: 1
+  database:
+    host: "127.0.0.1"
+    port: "3360"
+    username: "test"
+    password: "test"
+    database: "test"
+    table: "test_data"
+hashringWorker:
+  enabled: false
+  loglevel: debug
+  proxy: "hr.proxy.example.com"
+  vnodes: 1
