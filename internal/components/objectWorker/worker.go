@@ -163,8 +163,18 @@ func (ow *ObjectWorkerT) processRequestList(wg *sync.WaitGroup, requests []pools
 	logExtraFields := global.GetLogExtraFieldsObjectWorker()
 
 	for _, request := range requests {
-		back, backSource := ow.getBackendObject(request.Object)
-		front, frontSource := ow.getFrontendObject(request.Object)
+		back, backSource, err := ow.getBackendObject(request.Object)
+		if err != nil {
+			logExtraFields[global.LogFieldKeyExtraError] = err.Error()
+			ow.log.Error("unable to get backend object route", logExtraFields)
+			continue
+		}
+		front, frontSource, err := ow.getFrontendObject(request.Object)
+		if err != nil {
+			logExtraFields[global.LogFieldKeyExtraError] = err.Error()
+			ow.log.Error("unable to get frontend object route", logExtraFields)
+			continue
+		}
 		logExtraFields[global.LogFieldKeyExtraError] = global.LogFieldValueDefault
 		logExtraFields[global.LogFieldKeyExtraObject] = front.String()
 		logExtraFields[global.LogFieldKeyExtraBackendObject] = back.String()

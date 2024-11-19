@@ -64,8 +64,9 @@ type ModifierConfigT struct {
 // Routing
 
 type RoutingConfigT struct {
-	Type   string                  `yaml:"type"`
-	Routes map[string]RouteConfigT `yaml:"routes"`
+	Type        string                  `yaml:"type"`
+	MetadataKey string                  `yaml:"metadataKey"`
+	Routes      map[string]RouteConfigT `yaml:"routes"`
 }
 
 type RouteConfigT struct {

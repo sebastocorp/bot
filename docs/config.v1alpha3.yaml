@@ -27,7 +27,8 @@ objectWorker:
     removePrefix: "trim-prefix/"
     addPrefix: "add-prefix/"
   routing:
-    type: bucket
+    type: bucket # bucket|prefixPath|metadata
+    metadataKey: X-Real-IP
     routes:
       "bucket-name":
         front:

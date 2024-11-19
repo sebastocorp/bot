@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 )
 
 type ObjectManagerI interface {
@@ -21,8 +22,9 @@ type ObjectI interface {
 }
 
 type ObjectT struct {
-	Bucket string `json:"bucket"`
-	Path   string `json:"path"`
+	Bucket   string      `json:"bucket"`
+	Path     string      `json:"path"`
+	Metadata http.Header `json:"metadata"`
 }
 
 func GetManager(ctx context.Context, config v1alpha3.SourceConfigT) (m ObjectManagerI, err error) {
